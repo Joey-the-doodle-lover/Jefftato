@@ -1,23 +1,90 @@
 import pygame
-
-pygame.init()
-
+import time
+from pygame import Rect
 import random
-
-screen_height = 1080
-screen_width = 1920
-screen = pygame.display.set_mode((screen_width, screen_height))
-clock = pygame.time.Clock()
-fps = 60
 
 
 class Game:
-    def __init__(self, camera_x, camera_y, map_width, map_height, wave):
-        self.cameraX = camera_x
-        self.cameraY = camera_y
-        self.map_width = map_width
-        self.map_height = map_height
-        self.wave = wave
+
+    def __init__(self, screen):
+        self.screen = screen
+
+        self.arena_bounds = (0.0, 0.0, 50.0, 50.0)  # 50 x 50 meters
+        view_bounds = (15.0, 15.0, 20.0, 20.0)
+
+        self.viewport = Viewport(screen, view_bounds)
+
+        self.player = Player()
+        self.player.x = 25.0
+        self.player.y = 25.0
+
+    def run(self):
+        clock = pygame.time.Clock()
+        fps = 60
+
+        last_time = clock.get_time()
+
+        running = True
+
+        # Main game loop
+        while running:
+            # Calculate elapsed seconds
+            current_time = time.time_ns()
+            elapsed = (current_time - last_time) / 1e9
+            last_time = current_time
+
+            # Process events
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+
+            # Update object positions, health, state, etc
+            self.player.controls()
+            self.player.update(elapsed)
+            # Draw background
+            self.screen.fill((255, 255, 255))
+
+            # Draw all objects
+            self.player.draw(self.viewport, self.screen)
+            pygame.display.flip()
+            clock.tick(fps)
+
+
+class Viewport:
+    def __init__(self, screen, view_bounds):
+        self.view_bounds = view_bounds
+        self.screen_width = screen.get_width()
+        self.screen_height = screen.get_height()
+        self.pixels_per_meter = (
+            self.screen_width / self.view_bounds[0],
+            self.screen_height / self.view_bounds[1]
+        )
+
+    def convert_width(self, width):
+        return self.pixels_per_meter[0] * width
+
+    def convert_height(self, height):
+        return self.pixels_per_meter[1] * height
+
+    def convert_rect_to_screen(self, rect):
+        point = self.convert_point_to_screen((rect[0], rect[1]))
+        width = self.convert_width(rect[2])
+        height = self.convert_height(rect[3])
+        return Rect(
+            point[0], point[1], width, height
+        )
+
+    def convert_point_to_screen(self, arena_location):
+        # Subtract the viewport bounds from the world bounds
+        view_x = arena_location[0] - self.view_bounds[0]
+        view_y = arena_location[1] - self.view_bounds[1]
+
+        # Convert from view coordinates to pixel on screen
+        pixel_x = view_x * self.pixels_per_meter[0]
+        pixel_y = self.screen_height - (view_y * self.pixels_per_meter[1])
+
+        return pixel_x, pixel_y
+
 
     class Enemy:
         def __init__(self, x, y, vx, vy, hp, typ):
@@ -72,55 +139,95 @@ class Player:
     dmc = double material chance, trt_bx = materials from treat box, f_rll = free rerolls, tree = tree quanity,
     enm = enemy quanity, enm_spd = enemy speed.
     """
+    level = 1
+    hp = 10
+    kibble = 30
+    regeneration = 0
+    life_steal = 0
+    damage = 0
+    melee_damage = 0
+    ranged_damage = 0
+    elemental_damage = 0
+    attack_speed = 0
+    crit_chance = 0
+    engineering = 0
+    range = 0
+    armor = 0
+    dodge = 0
+    speed = 0
+    luck = 0
+    harvesting = 0
+    consumable_heal = 0
+    kibble_heal_chance = 0
+    xp_gain = 0
+    pick_up_range = 0
+    shop_price = 0
+    explosion_damage = 0
+    explosion_size = 0
+    bounces = 0
+    peircing = 0
+    peircing_damage = 0
+    boss_damage = 0
+    burn_speed = 0
+    burn_spread = 0
+    knockback = 0
+    double_kibble_chance = 0
+    treet_box_value = 0
+    free_rerolls = 0
 
-    def __init__(self, x, y, vx, vy, xp, lv, hp, reg, ls, dmg, mdmg, rdmg, edmg, a_s, crit, eng, rng, amr, dg, spd, lk,
-                 harv, con_heal, mhc, xp_g, pr, price, ex_dmg, ex_size, bonc, prc, prc_dmg, boss, brn_spd, brn_sprd,
-                 kb, dmv, trt_bx, f_rll, tree, enm, enm_spd):
-        self.x = x
-        self.y = y
-        self.velocityX = vx
-        self.velocityY = vy
-        self.xp = xp
-        self.lv = lv
-        self.hp = hp
-        self.regeneration = reg
-        self.life_steal = ls
-        self.damage = dmg
-        self.melee_damage = mdmg
-        self.ranged_damage = rdmg
-        self.elemental_damage = edmg
-        self.attack_speed = a_s
-        self.crit_chance = crit
-        self.engineering = eng
-        self.range = rng
-        self.armor = amr
-        self.dodge = dg
-        self.speed = spd
-        self.luck = lk
-        self.harvesting = harv
-        self.consumable_heal = con_heal
-        self.material_heal_chance = mhc
-        self.xp_gain = xp_g
-        self.pick_up_range = pr
-        self.shop_price = price
-        self.explosion_damage = ex_dmg
-        self.explosion_size = ex_size
-        self.bounces = bonc
-        self.peircing = prc
-        self.peircing_damage = prc_dmg
-        self.boss_damage = boss
-        self.burn_speed = brn_spd
-        self.burn_spread = brn_sprd
-        self.knockback = kb
-        self.double_material_chance = dmv
-        self.treet_box_value = trt_bx
-        self.free_rerolls = f_rll
-        self.tree_quanity = tree
-        self.enemy_quanity = enm
-        self.enemy_speed = enm_spd
+    base_speed = 3.0  # meters per sec
+
+    def update(self, elapsed):
+        self.x = self.x + (self.vx * elapsed)
+        self.y = self.y + (self.vy * elapsed)
+
+    def controls(self):
+        self.vx = 0.0
+        self.vy = 0.0
+
+        move_speed = (1.0 + (self.speed / 100.0)) * self.base_speed
+
+        keys_pressed = pygame.key.get_pressed()
+        if keys_pressed[pygame.K_UP] or keys_pressed[pygame.K_w]:
+            self.vy = move_speed
+        if keys_pressed[pygame.K_LEFT] or keys_pressed[pygame.K_a]:
+            self.vx = -move_speed
+        if keys_pressed[pygame.K_DOWN] or keys_pressed[pygame.K_s]:
+            self.vy = -move_speed
+        if keys_pressed[pygame.K_RIGHT] or keys_pressed[pygame.K_d]:
+            self.vx = move_speed
+
+    def draw(self, viewport, screen):
+        height = 0.3
+        width = 0.6
+        rect = (
+            self.x - width / 2,
+            self.y + height / 2,
+            width,
+            height
+        )
+
+        color = (0, 0, 0)
+
+        pygame.draw.rect(
+            screen,
+            color,
+            viewport.convert_rect_to_screen(rect)
+        )
 
 
-game = Game(0, 0, 5000, 5000, 1)
-while True:
-    pygame.display.flip()
-    clock.tick(fps)
+def create_pygame_screen():
+    pygame.init()
+    return pygame.display.set_mode((1920, 1080))
+
+
+def main():
+    screen = create_pygame_screen()
+    game = Game(screen)
+
+    # Create Game()
+    game.run()
+
+
+if __name__ == '__main__':
+    main()
