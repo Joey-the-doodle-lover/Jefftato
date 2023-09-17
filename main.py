@@ -1,7 +1,8 @@
-import pygame
-import time
-from pygame import Rect
+import math
 import random
+import time
+import pygame
+from pygame import Rect
 
 
 class Game:
@@ -18,6 +19,8 @@ class Game:
         self.player.x = 25.0
         self.player.y = 25.0
 
+        self.enemy = Enemy(0, 0, 0, 0, 1, 0, 0)
+
         self.spot_count = 100
         self.spot_color = (0, 255, 0)
         self.spot_size_range = (5, 50)  # in cm
@@ -28,6 +31,7 @@ class Game:
         clock = pygame.time.Clock()
         fps = 60
         last_time = clock.get_time()
+        frame = 0
 
         self.generate_spots()
 
@@ -49,14 +53,20 @@ class Game:
             self.player.update(elapsed)
             self.player.keep_player_on_map(self.arena_bounds)
             self.viewport.move(self.arena_bounds, self.player)
+
+            self.enemy.get_velocity(self.player)
+            self.enemy.update_location(elapsed, fps)
+            self.enemy.stay_in_bounds(self.arena_bounds)
             # Draw background
             self.draw_background()
 
             # Draw all objects
             self.player.draw(self.viewport, self.screen)
+            pygame.draw.circle(self.screen, (255, 0, 0), self.viewport.convert_point_to_screen((self.enemy.x, self.enemy.y)), 50)
 
             # finalize frame
             pygame.display.flip()
+            frame += 1
             clock.tick(fps)
 
     def generate_spots(self):
