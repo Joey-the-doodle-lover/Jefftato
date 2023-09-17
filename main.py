@@ -8,24 +8,30 @@ class Game:
 
     def __init__(self, screen):
         self.screen = screen
+        self.aspect_ratio = 1080 / 1920
 
         self.arena_bounds = (0.0, 0.0, 50.0, 50.0)  # 50 x 50 meters
-        view_bounds = (15.0, 15.0, 20.0, 20.0)
-
+        view_bounds = [15.0, 15.0, 20.0, 20.0 * self.aspect_ratio]
         self.viewport = Viewport(screen, view_bounds)
 
         self.player = Player()
         self.player.x = 25.0
         self.player.y = 25.0
 
+        self.spot_count = 100
+        self.spot_color = (0, 255, 0)
+        self.spot_size_range = (5, 50)  # in cm
+        self.spots = []
+        self.background_color = (100, 50, 0)
+
     def run(self):
         clock = pygame.time.Clock()
         fps = 60
-
         last_time = clock.get_time()
 
-        running = True
+        self.generate_spots()
 
+        running = True
         # Main game loop
         while running:
             # Calculate elapsed seconds
@@ -41,17 +47,36 @@ class Game:
             # Update object positions, health, state, etc
             self.player.controls()
             self.player.update(elapsed)
+            self.player.keep_player_on_map(self.arena_bounds)
+            self.viewport.move(self.arena_bounds, self.player)
             # Draw background
-            self.screen.fill((255, 255, 255))
+            self.draw_background()
 
             # Draw all objects
             self.player.draw(self.viewport, self.screen)
+
+            # finalize frame
             pygame.display.flip()
             clock.tick(fps)
+
+    def generate_spots(self):
+        for i in range(self.spot_count):
+            self.spots.append(random.randint(0, 5000) / 100)
+            self.spots.append(random.randint(0, 5000) / 100)
+            self.spots.append(random.randint(self.spot_size_range[0], self.spot_size_range[1]) / 100)
+
+    def draw_background(self):
+        self.screen.fill((0, 0, 255))
+        pygame.draw.rect(self.screen, self.background_color, self.viewport.convert_rect_to_screen((0, 50, 50, 50)))
+        for i in range(self.spot_count):
+            location = self.viewport.convert_point_to_screen((self.spots[3 * i], self.spots[(3 * i) + 1]))
+            size = self.viewport.convert_width(self.spots[(3 * i) + 2] / 2)
+            pygame.draw.circle(self.screen, self.spot_color, location, size)
 
 
 class Viewport:
     def __init__(self, screen, view_bounds):
+        self.base_view_bounds = view_bounds
         self.view_bounds = view_bounds
         self.screen_width = screen.get_width()
         self.screen_height = screen.get_height()
@@ -59,6 +84,21 @@ class Viewport:
             self.screen_width / self.view_bounds[2],
             self.screen_height / self.view_bounds[3]
         )
+
+    def move(self, arena_bounds, player):
+        movement = player.vx + player.vy
+        # self.view_bounds[2] = self.base_view_bounds[2] + (movement / 100)
+        # self.view_bounds[3] = self.base_view_bounds[3] + (movement / 100)
+        self.view_bounds[0] = player.x - (self.view_bounds[2] / 2)
+        self.view_bounds[1] = player.y - (self.view_bounds[3] / 2)
+        if self.view_bounds[0] + self.view_bounds[2] > arena_bounds[2] + 5:
+            self.view_bounds[0] = arena_bounds[2] + 5 - self.view_bounds[2]
+        if self.view_bounds[0] < arena_bounds[0] - 5:
+            self.view_bounds[0] = arena_bounds[0] - 5
+        if self.view_bounds[1] + self.view_bounds[3] > arena_bounds[3] + 5:
+            self.view_bounds[1] = arena_bounds[3] - self.view_bounds[3] + 5
+        if self.view_bounds[1] < arena_bounds[1] - 5:
+            self.view_bounds[1] = arena_bounds[1] - 5
 
     def convert_width(self, width):
         return self.pixels_per_meter[0] * width
@@ -175,11 +215,21 @@ class Player:
     treet_box_value = 0
     free_rerolls = 0
 
-    base_speed = 3.0  # meters per sec
+    base_speed = 5.0  # meters per sec
 
     def update(self, elapsed):
         self.x += self.vx * elapsed
         self.y += self.vy * elapsed
+
+    def keep_player_on_map(self, arena_bounds):
+        if self.x > arena_bounds[2]:
+            self.x = arena_bounds[2]
+        if self.x < arena_bounds[0]:
+            self.x = arena_bounds[0]
+        if self.y > arena_bounds[3]:
+            self.y = arena_bounds[3]
+        if self.y < arena_bounds[1]:
+            self.y = arena_bounds[1]
 
     def controls(self):
         self.vx = 0.0
