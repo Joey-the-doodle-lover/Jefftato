@@ -56,8 +56,8 @@ class Viewport:
         self.screen_width = screen.get_width()
         self.screen_height = screen.get_height()
         self.pixels_per_meter = (
-            self.screen_width / self.view_bounds[0],
-            self.screen_height / self.view_bounds[1]
+            self.screen_width / self.view_bounds[2],
+            self.screen_height / self.view_bounds[3]
         )
 
     def convert_width(self, width):
@@ -178,8 +178,8 @@ class Player:
     base_speed = 3.0  # meters per sec
 
     def update(self, elapsed):
-        self.x = self.x + (self.vx * elapsed)
-        self.y = self.y + (self.vy * elapsed)
+        self.x += self.vx * elapsed
+        self.y += self.vy * elapsed
 
     def controls(self):
         self.vx = 0.0
