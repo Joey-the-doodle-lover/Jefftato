@@ -3,6 +3,7 @@ import random
 import time
 import pygame
 from pygame import Rect
+from pygame import sprite
 
 
 class Game:
@@ -19,15 +20,19 @@ class Game:
         self.player.x = 25.0
         self.player.y = 25.0
 
-        self.enemy = Enemy(0, 0, 0, 0, 1, 0, 0)
+        self.enemys = []
 
-        self.spot_count = 100
+        self.spot_count = int(
+            ((self.arena_bounds[0] + self.arena_bounds[2]) * (self.arena_bounds[1] + self.arena_bounds[3])) / 25)
         self.spot_color = (0, 255, 0)
         self.spot_size_range = (5, 50)  # in cm
         self.spots = []
         self.background_color = (100, 50, 0)
 
+        self.wave = 1
+
     def run(self):
+        pygame.font.init()
         clock = pygame.time.Clock()
         fps = 60
         last_time = clock.get_time()
@@ -54,15 +59,18 @@ class Game:
             self.player.keep_player_on_map(self.arena_bounds)
             self.viewport.move(self.arena_bounds, self.player)
 
-            self.enemy.get_velocity(self.player)
-            self.enemy.update_location(elapsed, fps)
-            self.enemy.stay_in_bounds(self.arena_bounds)
+            self.spawn_enemys(frame, self.wave, self.player)
+            for i in range(len(self.enemys)):
+                self.enemys[i].get_velocity(self.player)
+                self.enemys[i].update_location(elapsed)
+                self.enemys[i].stay_in_bounds(self.arena_bounds)
+
             # Draw background
             self.draw_background()
 
             # Draw all objects
             self.player.draw(self.viewport, self.screen)
-            pygame.draw.circle(self.screen, (255, 0, 0), self.viewport.convert_point_to_screen((self.enemy.x, self.enemy.y)), 50)
+            self.draw_enemys()
 
             # finalize frame
             pygame.display.flip()
@@ -82,6 +90,25 @@ class Game:
             location = self.viewport.convert_point_to_screen((self.spots[3 * i], self.spots[(3 * i) + 1]))
             size = self.viewport.convert_width(self.spots[(3 * i) + 2] / 2)
             pygame.draw.circle(self.screen, self.spot_color, location, size)
+
+    def spawn_enemys(self, frame, wave, player):
+        if frame % 60 == 0:
+            for i in range(wave):
+                self.enemys.append(Enemy(random.randint(0, 50), random.randint(0, 50), 0, 0, 5 * wave, 0, 0))
+                while math.sqrt(((self.enemys[len(self.enemys) - 1].x - player.x) ** 2) +
+                                ((self.enemys[len(self.enemys) - 1].y - player.y) ** 2)) < 10:
+                    self.enemys[len(self.enemys) - 1].x = random.randint(0, 50)
+                    self.enemys[len(self.enemys) - 1].y = random.randint(0, 50)
+
+    def draw_enemys(self):
+        for i in range(len(self.enemys)):
+            viewx = self.viewport.view_bounds[0]
+            viewy = self.viewport.view_bounds[1]
+            vieww = self.viewport.view_bounds[2]
+            viewh = self.viewport.view_bounds[3]
+            if viewx < self.enemys[i].x < viewx + vieww and viewy < self.enemys[i].y < viewy + viewh:  # if in view
+                pygame.draw.circle(self.screen, (255, 0, 0),
+                                   self.viewport.convert_point_to_screen((self.enemys[i].x, self.enemys[i].y)), 25)
 
 
 class Viewport:
@@ -136,62 +163,101 @@ class Viewport:
         return pixel_x, pixel_y
 
 
-    class Enemy:
-        def __init__(self, x, y, vx, vy, hp, typ):
-            self.x = x
-            self.y = y
-            self.vx = vx
-            self.vy = vy
-            self.hp = hp
-            self.type = typ
+class Enemy:
+    def __init__(self, x, y, vx, vy, hp, speed, typ):
+        self.x = x
+        self.y = y
+        self.vx = vx
+        self.vy = vy
+        self.hp = hp
+        self.speed = speed
+        self.base_speed = 2.5
+        self.type = typ
 
-    class PlayerAttacks:
-        def __init__(self, x, y, vx, vy, dmg, rang, typ):
-            self.x = x
-            self.y = y
-            self.vx = vx
-            self.vy = vy
-            self.dmg = dmg
-            self.range = rang
-            self.type = typ
+    def get_velocity(self, player):
+        move_speed = (1 + (self.speed / 100)) * self.base_speed
 
-    class EnemyAttacks:
-        def __init__(self, x, y, vx, vy, dmg, typ):
-            self.x = x
-            self.y = y
-            self.vx = vx
-            self.vy = vy
-            self.dmg = dmg
-            self.type = typ
+        dx = player.x - self.x
+        dy = player.y - self.y
+        angle = math.atan2(dy, dx)
 
-    class Structures:
-        def __init__(self, x, y, typ):
-            self.x = x
-            self.y = y
-            self.type = typ
+        self.vx = move_speed * math.cos(angle)
+        self.vy = move_speed * math.sin(angle)
 
-    class Consumables:
-        def __init__(self, x, y, value, typ):
-            self.x = x
-            self.y = y
-            self.value = value
-            self.type = typ
+        # try:  # if the enemy x = player x, there will be divide by 0
+        #     slope1 = (player.y - self.y) / (player.x - self.x)
+        #     angle1 = math.atan(slope1)
+        #     mirrorex = -self.x
+        #     mirrorpx = -player.x
+        #     slope2 = (player.y - self.y) / (mirrorpx - mirrorex)
+        #     angle2 = math.atan(slope2)
+        #
+        #     if ((angle1 > 0) and (self.y < player.y)) or ((angle1 < 0) and (self.y > player.y)):
+        #         self.vx = move_speed * math.cos(angle1)
+        #         self.vy = move_speed * math.sin(angle1)
+        #     elif ((angle2 > 0) and (self.y < player.y)) or ((angle2 < 0) and (self.y > player.y)):
+        #         self.vx = -(move_speed * math.cos(angle2))
+        #         self.vy = move_speed * math.sin(angle2)
+        # except ZeroDivisionError:
+        #     pass
+
+    def stay_in_bounds(self, arena_bounds):
+        if self.x > arena_bounds[2] - 1:
+            self.x = arena_bounds[2] - 1
+        if self.x < arena_bounds[0] + 1:
+            self.x = arena_bounds[0] + 1
+        if self.y > arena_bounds[3] - 1:
+            self.y = arena_bounds[3] - 1
+        if self.y < arena_bounds[1] + 1:
+            self.y = arena_bounds[1] + 1
+
+    def update_location(self, elapsed):
+        self.x += self.vx * elapsed
+        self.y += self.vy * elapsed
+
+
+class PlayerAttacks:
+    def __init__(self, x, y, vx, vy, dmg, rang, typ):
+        self.x = x
+        self.y = y
+        self.vx = vx
+        self.vy = vy
+        self.dmg = dmg
+        self.range = rang
+        self.type = typ
+
+
+class EnemyAttacks:
+    def __init__(self, x, y, vx, vy, dmg, typ):
+        self.x = x
+        self.y = y
+        self.vx = vx
+        self.vy = vy
+        self.dmg = dmg
+        self.type = typ
+
+
+class Structures:
+    def __init__(self, x, y, typ):
+        self.x = x
+        self.y = y
+        self.type = typ
+
+
+class Consumables:
+    def __init__(self, x, y, value, typ):
+        self.x = x
+        self.y = y
+        self.value = value
+        self.type = typ
 
 
 class Player:
-    """
-    hp = health, reg = regeneration, ls = life steal, dmg = damage, mdmg = melee damage, rdmg = ranged damage,
-    edmg = elemental damage, a_s = attack speed, crit = crit chance, eng =  engineering, rng = range,
-    amr = armor, dg = dodge, spd = speed, lk = luck, harv = harvesting, con_heal consumable heal,
-    mhc = material heal chance, xp_g xp gain, pr = pickup range, price = item price, ex_dmg explosion damage,
-    ex_size = explosion size, bonc = projectile bounces, prc = projectile peircing, prc_dmg = peircing damage,
-    boss = damage agaist bosses, brn_spd = burning speed, brn_sprd = burning spread, kb = knockback,
-    dmc = double material chance, trt_bx = materials from treat box, f_rll = free rerolls, tree = tree quanity,
-    enm = enemy quanity, enm_spd = enemy speed.
-    """
     level = 1
+    xp = 0
     hp = 10
     kibble = 30
+
     regeneration = 0
     life_steal = 0
     damage = 0
@@ -225,7 +291,9 @@ class Player:
     treet_box_value = 0
     free_rerolls = 0
 
-    base_speed = 5.0  # meters per sec
+    base_speed = 5  # meters per sec
+
+    last_hit = 0
 
     def update(self, elapsed):
         self.x += self.vx * elapsed
@@ -256,6 +324,9 @@ class Player:
             self.vy = -move_speed
         if keys_pressed[pygame.K_RIGHT] or keys_pressed[pygame.K_d]:
             self.vx = move_speed
+        if abs(self.vx) > 0 and abs(self.vy) > 0:
+            self.vx = (5 / math.sqrt(2)) * (self.vx / abs(self.vx))
+            self.vy = (5 / math.sqrt(2)) * (self.vy / abs(self.vy))
 
     def draw(self, viewport, screen):
         height = 0.3
