@@ -95,6 +95,7 @@ class Game:
         if frame % 60 == 0:
             for i in range(wave):
                 self.enemys.append(Enemy(random.randint(0, 50), random.randint(0, 50), 0, 0, 5 * wave, 0, 0))
+                # if the enemy spawns next to the player, it will teleport somewhere else.
                 while math.sqrt(((self.enemys[len(self.enemys) - 1].x - player.x) ** 2) +
                                 ((self.enemys[len(self.enemys) - 1].y - player.y) ** 2)) < 10:
                     self.enemys[len(self.enemys) - 1].x = random.randint(0, 50)
@@ -163,8 +164,9 @@ class Viewport:
         return pixel_x, pixel_y
 
 
-class Enemy:
-    def __init__(self, x, y, vx, vy, hp, speed, typ):
+class Enemy(pygame.sprite.Sprite):
+    def __init__(self, x, y, vx, vy, hp, speed, typ, *groups: pygame.sprite.Sprite):
+        super().__init__(*groups)
         self.x = x
         self.y = y
         self.vx = vx
@@ -202,14 +204,14 @@ class Enemy:
         #     pass
 
     def stay_in_bounds(self, arena_bounds):
-        if self.x > arena_bounds[2] - 1:
-            self.x = arena_bounds[2] - 1
-        if self.x < arena_bounds[0] + 1:
-            self.x = arena_bounds[0] + 1
-        if self.y > arena_bounds[3] - 1:
-            self.y = arena_bounds[3] - 1
-        if self.y < arena_bounds[1] + 1:
-            self.y = arena_bounds[1] + 1
+        if self.x > arena_bounds[2]:
+            self.x = arena_bounds[2]
+        if self.x < arena_bounds[0]:
+            self.x = arena_bounds[0]
+        if self.y > arena_bounds[3]:
+            self.y = arena_bounds[3]
+        if self.y < arena_bounds[1]:
+            self.y = arena_bounds[1]
 
     def update_location(self, elapsed):
         self.x += self.vx * elapsed
