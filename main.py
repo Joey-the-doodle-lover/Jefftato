@@ -16,7 +16,7 @@ class Game:
         view_bounds = [15.0, 15.0, 20.0, 20.0 * self.aspect_ratio]
         self.viewport = Viewport(screen, view_bounds)
 
-        self.player = Player()
+        self.player = Player(Viewport(screen, view_bounds))
         self.player.x = 25.0
         self.player.y = 25.0
 
@@ -234,8 +234,8 @@ class PlayerAttacks(pygame.sprite.Sprite):
 
     def __init__(self, player, rang, peirce, peirce_dmg, bounce, typ, *groups: pygame.sprite.Sprite):
         super().__init__(*groups)
-        self.x = player.x
-        self.y = player.y
+        self.x = player.x + (random.randint(-5, 5) / 10)
+        self.y = player.y + (random.randint(-5, 5) / 10)
         self.start_x = self.x
         self.start_y = self.y
         self.range = rang
@@ -335,6 +335,28 @@ class Player:
 
     last_hit = 0
 
+    """
+    weapon types is a dictinary storing all of the weapons. weapon stat stored as tuple
+    0: type, as a tuple
+    1: base damage
+    2: base use time in seconds
+    3: base crit chance
+    4: crit chance modifier
+    5: base range
+    6: range modifier
+    7: base peirce
+    8: base peirce damage %
+    9: base bounces
+    10: knockback
+    11: life steal
+    """
+    weapon_types = dict([
+        ("gun", (("gun"), 5, 0.5, 5, 1, 5.0, 2, 0, 0, 0, 0.05, 5)),
+        ("infinity gun", (("gun", "debug"), 1e10, 0, 100, 0, 100, 0, 100, 100, 0, 0, 100)),
+        ("knockback gun", (("gun"), 0, 0.5, 0, 0, 5.0, 2, 0, 0, 0, 1, 0))
+    ])
+    weapons = ["infinity gun", "infinity gun", "infinity gun", "infinity gun", "infinity gun", "infinity gun"]
+    last_attacked = [0, 0, 0, 0, 0, 0]  # stores the last framed that any weapon attacked on,
     projectiles = []
 
     def update(self, elapsed):
