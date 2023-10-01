@@ -13,7 +13,7 @@ class Game:
         self.aspect_ratio = 1080 / 1920
 
         self.arena_bounds = (0.0, 0.0, 50.0, 50.0)  # 50 x 50 meters
-        view_bounds = [15.0, 15.0, 20.0, 20.0 * self.aspect_ratio]
+        view_bounds = [0, 0, 50.0, 50.0 * self.aspect_ratio]
         self.viewport = Viewport(screen, view_bounds)
 
         self.player = Player(Viewport(screen, view_bounds))
@@ -29,7 +29,7 @@ class Game:
         self.spots = []
         self.background_color = (100, 50, 0)
 
-        self.wave = 10
+        self.wave = 5
 
     def run(self):
         pygame.font.init()
@@ -85,7 +85,7 @@ class Game:
             viewh = self.viewport.view_bounds[3]
             if viewx < bullet.x < viewx + vieww and viewy < bullet.y < viewy + viewh:  # if in view
                 pygame.draw.circle(self.screen, (255, 255, 0),
-                                   self.viewport.convert_point_to_screen((bullet.x, bullet.y)), 5)
+                                   self.viewport.convert_point_to_screen((bullet.x, bullet.y)), bullet.radius)
 
     def generate_spots(self):
         for i in range(self.spot_count):
@@ -103,8 +103,9 @@ class Game:
 
     def spawn_enemys(self, frame, wave, player):
         if frame % 60 == 0:
+            print(f"enemy count: {len(self.enemys)}")
             for i in range(wave):
-                self.enemys.append(Enemy(random.randint(0, 50), random.randint(0, 50), 0, 0, 5 * wave, 0, 0))
+                self.enemys.append(Enemy(random.randint(0, 50), random.randint(0, 50), 5 * wave, 0, 0, self.viewport))
                 # if the enemy spawns next to the player, it will teleport somewhere else.
                 while math.sqrt(((self.enemys[len(self.enemys) - 1].x - player.x) ** 2) +
                                 ((self.enemys[len(self.enemys) - 1].y - player.y) ** 2)) < 10:
@@ -119,7 +120,15 @@ class Game:
             viewh = self.viewport.view_bounds[3]
             if viewx < enemy.x < viewx + vieww and viewy < enemy.y < viewy + viewh:  # if in view
                 pygame.draw.circle(self.screen, (255, 0, 0),
-                                   self.viewport.convert_point_to_screen((enemy.x, enemy.y)), 25)
+                                   self.viewport.convert_point_to_screen((enemy.x, enemy.y)), enemy.radius)
+
+    def remove_dead(self):
+        index = 0
+        for enemy in self.enemys:
+            if enemy.hp <= 0:
+                self.enemys.pop(index)
+            else:
+                index += 1
 
 
 class Viewport:
@@ -139,14 +148,14 @@ class Viewport:
         # self.view_bounds[3] = self.base_view_bounds[3] + (movement / 100)
         self.view_bounds[0] = player.x - (self.view_bounds[2] / 2)
         self.view_bounds[1] = player.y - (self.view_bounds[3] / 2)
-        if self.view_bounds[0] + self.view_bounds[2] > arena_bounds[2] + 5:
-            self.view_bounds[0] = arena_bounds[2] + 5 - self.view_bounds[2]
-        if self.view_bounds[0] < arena_bounds[0] - 5:
-            self.view_bounds[0] = arena_bounds[0] - 5
-        if self.view_bounds[1] + self.view_bounds[3] > arena_bounds[3] + 5:
-            self.view_bounds[1] = arena_bounds[3] - self.view_bounds[3] + 5
-        if self.view_bounds[1] < arena_bounds[1] - 5:
-            self.view_bounds[1] = arena_bounds[1] - 5
+        if self.view_bounds[0] + self.view_bounds[2] > arena_bounds[2] + self.view_bounds[2] * 0.25:
+            self.view_bounds[0] = arena_bounds[2] + self.view_bounds[2] * 0.25 - self.view_bounds[2]
+        if self.view_bounds[0] < arena_bounds[0] - self.view_bounds[2] * 0.25:
+            self.view_bounds[0] = arena_bounds[0] - self.view_bounds[2] * 0.25
+        if self.view_bounds[1] + self.view_bounds[3] > arena_bounds[3] + self.view_bounds[3] * 0.25:
+            self.view_bounds[1] = arena_bounds[3] - self.view_bounds[3] + self.view_bounds[3] * 0.25
+        if self.view_bounds[1] < arena_bounds[1] - self.view_bounds[3] * 0.25:
+            self.view_bounds[1] = arena_bounds[1] - self.view_bounds[3] * 0.25
 
     def convert_width(self, width):
         return self.pixels_per_meter[0] * width
@@ -175,16 +184,27 @@ class Viewport:
 
 
 class Enemy(pygame.sprite.Sprite):
-    def __init__(self, x, y, vx, vy, hp, speed, typ, *groups: pygame.sprite.Sprite):
+    vx = 0
+    vy = 0
+
+    def __init__(self, x, y, hp, speed, typ, viewport, *groups: pygame.sprite.Sprite):
         super().__init__(*groups)
         self.x = x
         self.y = y
-        self.vx = vx
-        self.vy = vy
+
         self.hp = hp
         self.speed = speed
         self.base_speed = 2.5
         self.type = typ
+
+        self.image = pygame.Surface([1920, 1080])
+        self.color = (255, 0, 0)
+        self.real_radius = 0.25
+        self.radius = viewport.convert_width(self.real_radius)
+
+        self.rect = pygame.Rect(self.x, self.y, self.radius * 2, self.radius * 2)
+
+        pygame.draw.circle(self.image, self.color, (self.x, self.y), viewport.convert_width(self.radius))
 
     def get_velocity(self, player):
         move_speed = (1 + (self.speed / 100)) * self.base_speed
@@ -232,26 +252,42 @@ class PlayerAttacks(pygame.sprite.Sprite):
     vx = 0
     vy = 0
 
-    def __init__(self, player, rang, peirce, peirce_dmg, bounce, typ, *groups: pygame.sprite.Sprite):
+    enemys_hit = []
+
+    def __init__(self, player, weapon_dmg, rang, peirce, peirce_dmg, bounce, typ, viewport, *groups: pygame.sprite.Sprite):
         super().__init__(*groups)
         self.x = player.x + (random.randint(-5, 5) / 10)
         self.y = player.y + (random.randint(-5, 5) / 10)
         self.start_x = self.x
         self.start_y = self.y
+
+        self.damage = (1 + (player.damage / 100)) * weapon_dmg
         self.range = rang
         self.bounce = bounce
         self.peirce = peirce
-        self.peirce_damage = peirce_dmg
+        self.peirce_damage = 1 + (peirce_dmg / 100)
         self.type = typ
 
+        self.image = pygame.Surface([1920, 1080])
+        self.color = (255, 255, 0)
+        self.real_radius = 0.1
+        self.radius = viewport.convert_width(self.real_radius)
+
+        self.rect = pygame.Rect(self.x, self.y, self.radius * 2,
+                                self.radius * 2)
+
+        pygame.draw.circle(self.image, self.color, (self.x, self.y), viewport.convert_width(self.radius))
+
     def set_direction(self, player, enemys):
-        enemy = sorted(enemys, key=lambda enemy: (enemy.x - player.x) ** 2 + (enemy.y - player.y) ** 2)[0]
-
         move_speed = 10
+        if len(enemys) > 0:
+            enemy = sorted(enemys, key=lambda enemy: (enemy.x - player.x) ** 2 + (enemy.y - player.y) ** 2)[0]
 
-        dx = enemy.x - self.x
-        dy = enemy.y - self.y
-        angle = math.atan2(dy, dx)
+            dx = enemy.x - self.x
+            dy = enemy.y - self.y
+            angle = math.atan2(dy, dx)
+        else:
+            angle = random.randint(0, 360)
 
         self.vx = move_speed * math.cos(angle)
         self.vy = move_speed * math.sin(angle)
@@ -265,6 +301,13 @@ class PlayerAttacks(pygame.sprite.Sprite):
             return True
         else:
             return False
+
+    def hit_enemy(self, enemy):
+        if enemy not in self.enemys_hit:
+            self.enemys_hit.append(enemy)
+            enemy.hp -= self.damage
+            self.damage *= self.peirce_damage
+            self.peirce -= 1
 
 
 class EnemyAttacks:
@@ -310,7 +353,7 @@ class Player:
     range = 0
     armor = 0
     dodge = 0
-    speed = 0
+    speed = 250
     luck = 0
     harvesting = 0
     consumable_heal = 0
@@ -351,12 +394,12 @@ class Player:
     11: life steal
     """
     weapon_types = dict([
-        ("gun", (("gun"), 5, 0.5, 5, 1, 5.0, 2, 0, 0, 0, 0.05, 5)),
-        ("infinity gun", (("gun", "debug"), 1e10, 0, 100, 0, 100, 0, 100, 100, 0, 0, 100)),
+        ("gun", (("gun"), 5, 0.5, 5, 1, 5.0, 2, 0, -50, 0, 0.05, 5)),
+        ("infinity gun", (("gun", "debug"), 100, 0, 100, 0, 100, 0, 100, 100, 0, 0, 100)),
         ("knockback gun", (("gun"), 0, 0.5, 0, 0, 5.0, 2, 0, 0, 0, 1, 0))
     ])
-    weapons = ["infinity gun", "infinity gun", "infinity gun", "infinity gun", "infinity gun", "infinity gun"]
-    last_attacked = [0, 0, 0, 0, 0, 0]  # stores the last framed that any weapon attacked on,
+    weapons = ["infinity gun"]
+    last_attacked = [0]  # stores the last framed that each weapon attacked on
     projectiles = []
 
     def update(self, elapsed):
@@ -389,8 +432,8 @@ class Player:
         if keys_pressed[pygame.K_RIGHT] or keys_pressed[pygame.K_d]:
             self.vx = move_speed
         if abs(self.vx) > 0 and abs(self.vy) > 0:
-            self.vx = (5 / math.sqrt(2)) * (self.vx / abs(self.vx))
-            self.vy = (5 / math.sqrt(2)) * (self.vy / abs(self.vy))
+            self.vx = (self.vx / math.sqrt(2))
+            self.vy = (self.vy / math.sqrt(2))
 
     @staticmethod
     def create_image(viewport, width, height):
