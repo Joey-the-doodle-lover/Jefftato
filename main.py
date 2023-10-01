@@ -29,7 +29,7 @@ class Game:
         self.spots = []
         self.background_color = (100, 50, 0)
 
-        self.wave = 1
+        self.wave = 10
 
     def run(self):
         pygame.font.init()
@@ -77,6 +77,16 @@ class Game:
             frame += 1
             clock.tick(fps)
 
+    def draw_bullets(self):
+        for bullet in self.player.projectiles:
+            viewx = self.viewport.view_bounds[0]
+            viewy = self.viewport.view_bounds[1]
+            vieww = self.viewport.view_bounds[2]
+            viewh = self.viewport.view_bounds[3]
+            if viewx < bullet.x < viewx + vieww and viewy < bullet.y < viewy + viewh:  # if in view
+                pygame.draw.circle(self.screen, (255, 255, 0),
+                                   self.viewport.convert_point_to_screen((bullet.x, bullet.y)), 5)
+
     def generate_spots(self):
         for i in range(self.spot_count):
             self.spots.append(random.randint(0, 5000) / 100)
@@ -102,14 +112,14 @@ class Game:
                     self.enemys[len(self.enemys) - 1].y = random.randint(0, 50)
 
     def draw_enemys(self):
-        for i in range(len(self.enemys)):
+        for enemy in self.enemys:
             viewx = self.viewport.view_bounds[0]
             viewy = self.viewport.view_bounds[1]
             vieww = self.viewport.view_bounds[2]
             viewh = self.viewport.view_bounds[3]
-            if viewx < self.enemys[i].x < viewx + vieww and viewy < self.enemys[i].y < viewy + viewh:  # if in view
+            if viewx < enemy.x < viewx + vieww and viewy < enemy.y < viewy + viewh:  # if in view
                 pygame.draw.circle(self.screen, (255, 0, 0),
-                                   self.viewport.convert_point_to_screen((self.enemys[i].x, self.enemys[i].y)), 25)
+                                   self.viewport.convert_point_to_screen((enemy.x, enemy.y)), 25)
 
 
 class Viewport:
@@ -218,15 +228,43 @@ class Enemy(pygame.sprite.Sprite):
         self.y += self.vy * elapsed
 
 
-class PlayerAttacks:
-    def __init__(self, x, y, vx, vy, dmg, rang, typ):
-        self.x = x
-        self.y = y
-        self.vx = vx
-        self.vy = vy
-        self.dmg = dmg
+class PlayerAttacks(pygame.sprite.Sprite):
+    vx = 0
+    vy = 0
+
+    def __init__(self, player, rang, peirce, peirce_dmg, bounce, typ, *groups: pygame.sprite.Sprite):
+        super().__init__(*groups)
+        self.x = player.x
+        self.y = player.y
+        self.start_x = self.x
+        self.start_y = self.y
         self.range = rang
+        self.bounce = bounce
+        self.peirce = peirce
+        self.peirce_damage = peirce_dmg
         self.type = typ
+
+    def set_direction(self, player, enemys):
+        enemy = sorted(enemys, key=lambda enemy: (enemy.x - player.x) ** 2 + (enemy.y - player.y) ** 2)[0]
+
+        move_speed = 10
+
+        dx = enemy.x - self.x
+        dy = enemy.y - self.y
+        angle = math.atan2(dy, dx)
+
+        self.vx = move_speed * math.cos(angle)
+        self.vy = move_speed * math.sin(angle)
+
+    def update(self, elapsed):
+        self.x += self.vx * elapsed
+        self.y += self.vy * elapsed
+
+    def should_remove(self):
+        if math.sqrt(((self.start_x - self.x) ** 2) + (self.start_y - self.y) ** 2) > self.range or self.peirce < 0:
+            return True
+        else:
+            return False
 
 
 class EnemyAttacks:
@@ -297,6 +335,8 @@ class Player:
 
     last_hit = 0
 
+    projectiles = []
+
     def update(self, elapsed):
         self.x += self.vx * elapsed
         self.y += self.vy * elapsed
@@ -330,15 +370,9 @@ class Player:
             self.vx = (5 / math.sqrt(2)) * (self.vx / abs(self.vx))
             self.vy = (5 / math.sqrt(2)) * (self.vy / abs(self.vy))
 
-    def draw(self, viewport, screen):
-        height = 0.3
-        width = 0.6
-        rect = (
-            self.x - width / 2,
-            self.y + height / 2,
-            width,
-            height
-        )
+    @staticmethod
+    def create_image(viewport, width, height):
+        rect = (0, 0, width, height)
 
         color = (0, 0, 0)
 
@@ -347,7 +381,6 @@ class Player:
             color,
             viewport.convert_rect_to_screen(rect)
         )
-
 
 def create_pygame_screen():
     pygame.init()
