@@ -13,7 +13,8 @@ class Game:
         self.aspect_ratio = 1080 / 1920
 
         self.arena_bounds = (0.0, 0.0, 50.0, 50.0)  # 50 x 50 meters
-        view_bounds = [0, 0, 50.0, 50.0 * self.aspect_ratio]
+        zoom = 3
+        view_bounds = [15.0 * zoom, 15.0 * zoom, 20.0 * zoom, 20.0 * self.aspect_ratio * zoom]
         self.viewport = Viewport(screen, view_bounds)
 
         self.player = Player(Viewport(screen, view_bounds))
@@ -29,7 +30,7 @@ class Game:
         self.spots = []
         self.background_color = (100, 50, 0)
 
-        self.wave = 5
+        self.wave = 10
 
     def run(self):
         pygame.font.init()
@@ -39,6 +40,9 @@ class Game:
         frame = 0
 
         self.generate_spots()
+
+        sprites = pygame.sprite.Group()
+        sprites.add(self.player)
 
         running = True
         # Main game loop
@@ -55,26 +59,40 @@ class Game:
 
             # Update object positions, health, state, etc
             self.player.controls()
-            self.player.update(elapsed)
-            self.player.keep_player_on_map(self.arena_bounds)
             self.viewport.move(self.arena_bounds, self.player)
 
+            sprites.update(elapsed, self.arena_bounds)
+
             self.spawn_enemys(frame, self.wave, self.player)
-            for i in range(len(self.enemys)):
-                self.enemys[i].get_velocity(self.player)
-                self.enemys[i].update_location(elapsed)
-                self.enemys[i].stay_in_bounds(self.arena_bounds)
+            self.remove_dead()
+            for enemy in self.enemys:
+                enemy.get_velocity(self.player)
+                enemy.update_location(elapsed)
+                enemy.stay_in_bounds(self.arena_bounds)
+
+            self.player.generate_projectiles(frame, self.enemys)
+            self.player.remove_bullets()
+
+            for bullet in self.player.projectiles:
+                for enemy in self.enemys:
+                    if pygame.sprite.collide_circle(enemy, bullet):
+                        bullet.hit_enemy(enemy)
+
+                bullet.update(elapsed, self.viewport)
 
             # Draw background
             self.draw_background()
 
             # Draw all objects
-            self.player.draw(self.viewport, self.screen)
+            sprites.draw(self.screen)
             self.draw_enemys()
+            self.draw_bullets()
 
             # finalize frame
             pygame.display.flip()
             frame += 1
+            if frame % 60 == 0:
+                print(f"fps: {1 // elapsed}")
             clock.tick(fps)
 
     def draw_bullets(self):
@@ -200,7 +218,7 @@ class Enemy(pygame.sprite.Sprite):
         self.image = pygame.Surface([1920, 1080])
         self.color = (255, 0, 0)
         self.real_radius = 0.25
-        self.radius = viewport.convert_width(self.real_radius)
+        self.radius = math.ceil(viewport.convert_width(self.real_radius))
 
         self.rect = pygame.Rect(self.x, self.y, self.radius * 2, self.radius * 2)
 
@@ -216,23 +234,6 @@ class Enemy(pygame.sprite.Sprite):
         self.vx = move_speed * math.cos(angle)
         self.vy = move_speed * math.sin(angle)
 
-        # try:  # if the enemy x = player x, there will be divide by 0
-        #     slope1 = (player.y - self.y) / (player.x - self.x)
-        #     angle1 = math.atan(slope1)
-        #     mirrorex = -self.x
-        #     mirrorpx = -player.x
-        #     slope2 = (player.y - self.y) / (mirrorpx - mirrorex)
-        #     angle2 = math.atan(slope2)
-        #
-        #     if ((angle1 > 0) and (self.y < player.y)) or ((angle1 < 0) and (self.y > player.y)):
-        #         self.vx = move_speed * math.cos(angle1)
-        #         self.vy = move_speed * math.sin(angle1)
-        #     elif ((angle2 > 0) and (self.y < player.y)) or ((angle2 < 0) and (self.y > player.y)):
-        #         self.vx = -(move_speed * math.cos(angle2))
-        #         self.vy = move_speed * math.sin(angle2)
-        # except ZeroDivisionError:
-        #     pass
-
     def stay_in_bounds(self, arena_bounds):
         if self.x > arena_bounds[2]:
             self.x = arena_bounds[2]
@@ -247,6 +248,8 @@ class Enemy(pygame.sprite.Sprite):
         self.x += self.vx * elapsed
         self.y += self.vy * elapsed
 
+        self.rect = pygame.Rect(self.x, self.y, self.radius * 2, self.radius * 2)
+
 
 class PlayerAttacks(pygame.sprite.Sprite):
     vx = 0
@@ -258,6 +261,9 @@ class PlayerAttacks(pygame.sprite.Sprite):
         super().__init__(*groups)
         self.x = player.x + (random.randint(-5, 5) / 10)
         self.y = player.y + (random.randint(-5, 5) / 10)
+        self.vx = 0
+        self.vy = 
+
         self.start_x = self.x
         self.start_y = self.y
 
@@ -266,15 +272,18 @@ class PlayerAttacks(pygame.sprite.Sprite):
         self.bounce = bounce
         self.peirce = peirce
         self.peirce_damage = 1 + (peirce_dmg / 100)
+        if self.peirce_damage > 1:
+            self.peirce_damage = 1
         self.type = typ
 
-        self.image = pygame.Surface([1920, 1080])
-        self.color = (255, 255, 0)
-        self.real_radius = 0.1
-        self.radius = viewport.convert_width(self.real_radius)
+        self.enemys_hit = []
 
-        self.rect = pygame.Rect(self.x, self.y, self.radius * 2,
-                                self.radius * 2)
+        self.color = (255, 255, 0)
+
+        self.real_radius = 0.1
+        self.radius = math.ceil(viewport.convert_width(self.real_radius))
+        self.image = PlayerAttacks.create_base_image(self.radius * 2, self.radius * 2)
+        self.rect = pygame.Rect(self.x, self.y, self.radius * 2, self.radius * 2)
 
         pygame.draw.circle(self.image, self.color, (self.x, self.y), viewport.convert_width(self.radius))
 
@@ -292,9 +301,11 @@ class PlayerAttacks(pygame.sprite.Sprite):
         self.vx = move_speed * math.cos(angle)
         self.vy = move_speed * math.sin(angle)
 
-    def update(self, elapsed):
+    def update(self, elapsed, viewport):
         self.x += self.vx * elapsed
         self.y += self.vy * elapsed
+        self.rect = viewport.convert_rect_to_screen((self.x, self.y, self.real_radius * 2, self.real_radius * 2))
+        self.image = PlayerAttacks.create_base_image(self.rect.w, self.rect.h)
 
     def should_remove(self):
         if math.sqrt(((self.start_x - self.x) ** 2) + (self.start_y - self.y) ** 2) > self.range or self.peirce < 0:
@@ -335,7 +346,15 @@ class Consumables:
         self.type = typ
 
 
-class Player:
+class Player(sprite.Sprite):
+    x = 0
+    y = 0
+    vx = 0
+    vy = 0
+
+    height = 0.3
+    width = 0.6
+
     level = 1
     xp = 0
     hp = 10
@@ -343,7 +362,7 @@ class Player:
 
     regeneration = 0
     life_steal = 0
-    damage = 0
+    damage = 1000
     melee_damage = 0
     ranged_damage = 0
     elemental_damage = 0
@@ -353,7 +372,7 @@ class Player:
     range = 0
     armor = 0
     dodge = 0
-    speed = 250
+    speed = 0
     luck = 0
     harvesting = 0
     consumable_heal = 0
@@ -398,13 +417,29 @@ class Player:
         ("infinity gun", (("gun", "debug"), 100, 0, 100, 0, 100, 0, 100, 100, 0, 0, 100)),
         ("knockback gun", (("gun"), 0, 0.5, 0, 0, 5.0, 2, 0, 0, 0, 1, 0))
     ])
-    weapons = ["infinity gun"]
+    weapons = ["gun"]
     last_attacked = [0]  # stores the last framed that each weapon attacked on
     projectiles = []
 
-    def update(self, elapsed):
+    def __init__(self, viewport):
+        super().__init__()
+
+        self.viewport = viewport
+        self.image = Player.create_image(self.viewport, self.width, self.height)
+        self.rect = self.image.get_rect()
+
+    def update(self, elapsed, arena_bounds):
         self.x += self.vx * elapsed
         self.y += self.vy * elapsed
+
+        self.keep_player_on_map(arena_bounds)
+
+        viewport_rect = self.viewport.convert_rect_to_screen(
+            (self.x, self.y, self.width, self.height)
+        )
+
+        self.rect.x = viewport_rect.x
+        self.rect.y = viewport_rect.y
 
     def keep_player_on_map(self, arena_bounds):
         if self.x > arena_bounds[2]:
@@ -439,13 +474,40 @@ class Player:
     def create_image(viewport, width, height):
         rect = (0, 0, width, height)
 
-        color = (0, 0, 0)
+        image_rect = viewport.convert_rect_to_screen(rect)
+        image = pygame.Surface((image_rect[2], image_rect[3]))
+
+        color = (80, 0, 0)
 
         pygame.draw.rect(
-            screen,
+            image,
             color,
-            viewport.convert_rect_to_screen(rect)
+            image_rect
         )
+
+        return image
+
+    def generate_projectiles(self, frame, enemys):
+        for i in range(len(self.weapons)):
+            weapon = self.weapons[i]
+            if frame > self.last_attacked[i] + (self.weapon_types[weapon][2] / (1 + self.attack_speed) * 60):
+                self.projectiles.append(
+                    PlayerAttacks(self, self.weapon_types[weapon][1], self.weapon_types[weapon][5] +
+                                  (self.range * self.weapon_types[weapon][6]),
+                                  self.weapon_types[weapon][7] + self.peircing,
+                                  self.weapon_types[weapon][8] + self.peircing_damage,
+                                  self.weapon_types[weapon][9] + self.bounces, weapon,
+                                  self.viewport))
+                self.projectiles[len(self.projectiles) - 1].set_direction(self, enemys)
+                self.last_attacked[i] = frame
+
+    def remove_bullets(self):
+        popped = 0
+        for i in range(len(self.projectiles)):
+            if self.projectiles[i - popped].should_remove():
+                self.projectiles.pop(i - popped)
+                popped += 1
+
 
 def create_pygame_screen():
     pygame.init()
