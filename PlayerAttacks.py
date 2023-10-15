@@ -6,7 +6,7 @@ import pygame
 class PlayerAttacks(pygame.sprite.Sprite):
     base_image = None
 
-    def __init__(self, player, weapon_dmg, rang, peirce, peirce_dmg, bounce, typ, viewport,
+    def __init__(self, player, weapon_dmg, rang, peirce, peirce_dmg, bounce, knockback, typ, viewport,
                  *groups: pygame.sprite.Sprite):
         super().__init__(*groups)
         self.x = player.x + (random.randint(-5, 5) / 10)
@@ -21,9 +21,8 @@ class PlayerAttacks(pygame.sprite.Sprite):
         self.range = rang
         self.bounce = bounce
         self.peirce = peirce
-        self.peirce_damage = 1 + (peirce_dmg / 100)
-        if self.peirce_damage > 1:
-            self.peirce_damage = 1
+        self.peirce_damage = max(1, (1 + (peirce_dmg / 100)))
+        self.knockback = knockback
         self.type = typ
 
         self.enemys_hit = []
@@ -63,6 +62,14 @@ class PlayerAttacks(pygame.sprite.Sprite):
         if enemy not in self.enemys_hit:
             self.enemys_hit.append(enemy)
             enemy.hp -= self.damage
+
+            # applys knockback on the enemy
+            dx = self.x - enemy.x
+            dy = self.y - enemy.y
+            angle = math.atan2(dy, dx)
+            enemy.x += -((self.knockback / 100) * math.cos(angle))
+            enemy.y += -((self.knockback / 100) * math.sin(angle))
+
             if self.bounce > 0:
                 self.set_direction(player, enemys)
             self.damage *= self.peirce_damage

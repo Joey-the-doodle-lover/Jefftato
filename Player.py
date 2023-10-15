@@ -2,6 +2,8 @@ import math
 import pygame
 from pygame import sprite
 from PlayerAttacks import PlayerAttacks
+from Weapons import Weapons
+
 
 class Player(sprite.Sprite):
     x = 0
@@ -54,27 +56,11 @@ class Player(sprite.Sprite):
 
     last_hit = 0
 
-    """
-    weapon types is a dictinary storing all of the weapons. weapon stat stored as tuple
-    0: type, as a tuple
-    1: base damage
-    2: base use time in seconds
-    3: base crit chance
-    4: crit chance modifier
-    5: base range
-    6: range modifier
-    7: base peirce
-    8: base peirce damage %
-    9: base bounces
-    10: knockback
-    11: life steal
-    """
-    weapon_types = dict([
-        ("gun", (("gun"), 5, 0.5, 5, 1, 5.0, 2, 0, -50, 0, 0.05, 5)),
-        ("infinity gun", (("gun", "debug"), 100, 0, 100, 0, 100, 0, 100, 100, 0, 0, 100)),
-        ("knockback gun", (("gun"), 0, 0.5, 0, 0, 5.0, 2, 0, 0, 0, 1, 0))
-    ])
-    weapons = ["infinity gun"]
+    gun = Weapons(("gun", "basic"), 5, 0, 1, 0, 0, 0.5, 5, 1, 250, 1, 1, -50, 0, 25, 1, 0, 1)
+    infinity_gun = Weapons(("gun", "debug"), 0, 5, 5, 5, 5, 1/60, 100, 0, 1e5, 0, 5, 0, 0, 10, 0, 100, 0)
+    knockback_gun = Weapons(("gun", "joke", "debug"), 0, 0, 0, 0, 0, 0.5, 0, 0, 250, 1, 0, -100, 5, 500, 10, 0, 0)
+
+    weapons = [infinity_gun]
     last_attacked = [0]  # stores the last framed that each weapon attacked on
     projectiles = pygame.sprite.Group()
 
@@ -147,12 +133,11 @@ class Player(sprite.Sprite):
     def generate_projectiles(self, frame, enemys):
         for i in range(len(self.weapons)):
             weapon = self.weapons[i]
-            if frame > self.last_attacked[i] + (self.weapon_types[weapon][2] / (1 + self.attack_speed) * 60):
-                bullet = PlayerAttacks(self, self.weapon_types[weapon][1], self.weapon_types[weapon][5] +
-                                       (self.range * self.weapon_types[weapon][6]),
-                                       self.weapon_types[weapon][7] + self.peircing,
-                                       self.weapon_types[weapon][8] + self.peircing_damage,
-                                       self.weapon_types[weapon][9] + self.bounces, weapon,
+            if frame > self.last_attacked[i] + (weapon.use_time / (1 + self.attack_speed) * 60):
+                bullet = PlayerAttacks(self, weapon.damage, weapon.range + (self.range * weapon.range_modifier),
+                                       weapon.pierce + self.peircing,
+                                       weapon.pierce_damage + self.peircing_damage,
+                                       weapon.bounces + self.bounces, weapon.knockback + self.knockback, weapon,
                                        self.viewport)
                 self.projectiles.add(bullet)
                 bullet.set_direction(self, enemys)
