@@ -44,7 +44,7 @@ class PlayerAttacks(pygame.sprite.Sprite):
             dy = enemy.y - self.y
             angle = math.atan2(dy, dx)
         else:
-            angle = random.randint(0, 360)
+            angle = (random.randint(0, 200) / 100) * 3.14159
 
         self.vx = move_speed * math.cos(angle)
         self.vy = move_speed * math.sin(angle)

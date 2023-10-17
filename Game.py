@@ -13,7 +13,7 @@ class Game:
         self.screen = screen
         self.aspect_ratio = 1080 / 1920
 
-        self.arena_bounds = (0.0, 0.0, 50.0, 50.0)  # 50 x 50 meters
+        self.arena_bounds = (0.0, 0.0, 25.0, 25.0)  # 50 x 50 meters
         zoom = 2
         view_bounds = [15.0 * zoom, 15.0 * zoom, 20.0 * zoom, 20.0 * self.aspect_ratio * zoom]
         self.viewport = Viewport(screen, view_bounds)
@@ -65,11 +65,7 @@ class Game:
             sprites.update(elapsed, self.arena_bounds)
 
             self.spawn_enemys(frame, self.wave, self.player)
-            self.remove_dead()
-            for enemy in self.enemys:
-                enemy.get_velocity(self.player)
-                enemy.stay_in_bounds(self.arena_bounds)
-            self.enemys.update(elapsed, self.viewport)
+            self.enemys.update(elapsed, self.enemys, self.player, self.arena_bounds, self.viewport)
 
             self.player.generate_projectiles(frame, self.enemys)
             self.player.remove_bullets()
@@ -98,13 +94,13 @@ class Game:
 
     def generate_spots(self):
         for i in range(self.spot_count):
-            self.spots.append(random.randint(0, 5000) / 100)
-            self.spots.append(random.randint(0, 5000) / 100)
+            self.spots.append(random.randint(int(self.arena_bounds[0]), int(self.arena_bounds[0]) + int(self.arena_bounds[2] * 100)) / 100)
+            self.spots.append(random.randint(int(self.arena_bounds[1]), int(self.arena_bounds[1]) + int(self.arena_bounds[3] * 100)) / 100)
             self.spots.append(random.randint(self.spot_size_range[0], self.spot_size_range[1]) / 100)
 
     def draw_background(self):
         self.screen.fill((0, 0, 255))
-        pygame.draw.rect(self.screen, self.background_color, self.viewport.convert_rect_to_screen((0, 50, 50, 50)))
+        pygame.draw.rect(self.screen, self.background_color, self.viewport.convert_rect_to_screen((self.arena_bounds[0], self.arena_bounds[1] + self.arena_bounds[3], self.arena_bounds[2], self.arena_bounds[3])))
         for i in range(self.spot_count):
             location = self.viewport.convert_point_to_screen((self.spots[3 * i], self.spots[(3 * i) + 1]))
             size = self.viewport.convert_width(self.spots[(3 * i) + 2] / 2)
@@ -121,8 +117,3 @@ class Game:
                                 ((enemy.y - player.y) ** 2)) < 10:
                     enemy.x = random.randint(0, 50)
                     enemy.y = random.randint(0, 50)
-
-    def remove_dead(self):
-        for enemy in self.enemys:
-            if enemy.hp <= 0:
-                enemy.kill()

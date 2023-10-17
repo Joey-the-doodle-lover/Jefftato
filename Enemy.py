@@ -1,14 +1,19 @@
 import math
 import pygame
+import random
 
 
 class Enemy(pygame.sprite.Sprite):
     base_image = None
 
+    repulsion_strength = 0.01
+
     def __init__(self, x, y, hp, speed, typ, viewport, *groups: pygame.sprite.Sprite):
         super().__init__(*groups)
         self.x = x
         self.y = y
+        self.vx = 0
+        self.vy = 0
 
         self.hp = hp
         self.speed = speed
@@ -22,7 +27,7 @@ class Enemy(pygame.sprite.Sprite):
         self.image = Enemy.create_base_image(self.radius * 2, self.radius * 2)
         self.rect = pygame.Rect(self.x, self.y, self.radius * 2, self.radius * 2)
 
-    def get_velocity(self, player):
+    def update_position(self, player, enemys, elapsed, arena_bounds):
         move_speed = (1 + (self.speed / 100)) * self.base_speed
 
         dx = player.x - self.x
@@ -31,6 +36,13 @@ class Enemy(pygame.sprite.Sprite):
 
         self.vx = move_speed * math.cos(angle)
         self.vy = move_speed * math.sin(angle)
+
+        self.repel_from_enemys(enemys)
+
+        self.x += self.vx * elapsed
+        self.y += self.vy * elapsed
+
+        self.stay_in_bounds(arena_bounds)
 
     def stay_in_bounds(self, arena_bounds):
         if self.x > arena_bounds[2]:
@@ -42,12 +54,32 @@ class Enemy(pygame.sprite.Sprite):
         if self.y < arena_bounds[1]:
             self.y = arena_bounds[1]
 
-    def update(self, elapsed, viewport):
-        self.x += self.vx * elapsed
-        self.y += self.vy * elapsed
+    def update(self, elapsed, enemys, player, arena_bounds, viewport):
+        self.remove_dead()
+
+        self.update_position(player, enemys, elapsed, arena_bounds)
 
         self.rect = viewport.convert_rect_to_screen((self.x, self.y, self.real_radius * 2, self.real_radius * 2))
         self.image = Enemy.create_base_image(self.rect.w, self.rect.h)
+
+    def repel_from_enemys(self, enemys):
+        for enemy in enemys:
+            distance = (((self.x - enemy.x) ** 2) + ((self.y - enemy.y) ** 2)) * 0.5
+            if distance < 2:
+                try:
+                    force = -(self.repulsion_strength / (distance ** 2))
+                except ZeroDivisionError:
+                    force = 0
+
+                dx = enemy.x - self.x
+                dy = enemy.y - self.y
+                angle = math.atan2(dy, dx)
+                self.vx += force * math.cos(angle)
+                self.vy += force * math.sin(angle)
+
+    def remove_dead(self):
+        if self.hp <= 0:
+            self.kill()
 
     @staticmethod
     def create_base_image(width, height):

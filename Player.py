@@ -57,10 +57,10 @@ class Player(sprite.Sprite):
     last_hit = 0
 
     gun = Weapons(("gun", "basic"), 5, 0, 1, 0, 0, 0.5, 5, 1, 250, 1, 1, -50, 0, 25, 1, 0, 1)
-    infinity_gun = Weapons(("gun", "debug"), 0, 5, 5, 5, 5, 1/60, 100, 0, 1e5, 0, 5, 0, 0, 10, 0, 100, 0)
+    infinity_gun = Weapons(("gun", "debug"), 0, 5, 5, 5, 5, 1/60, 100, 0, 1e5, 0, 5, 0, 0, 0, 0, 100, 0)
     knockback_gun = Weapons(("gun", "joke", "debug"), 0, 0, 0, 0, 0, 0.5, 0, 0, 250, 1, 0, -100, 5, 500, 10, 0, 0)
 
-    weapons = [infinity_gun]
+    weapons = []
     last_attacked = [0]  # stores the last framed that each weapon attacked on
     projectiles = pygame.sprite.Group()
 
