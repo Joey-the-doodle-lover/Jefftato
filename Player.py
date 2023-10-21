@@ -16,7 +16,8 @@ class Player(sprite.Sprite):
 
     level = 1
     xp = 0
-    hp = 10
+    hp = 50
+    max_hp = 50
     kibble = 30
 
     regeneration = 0
@@ -28,7 +29,7 @@ class Player(sprite.Sprite):
     attack_speed = 0
     crit_chance = 0
     engineering = 0
-    range = 0
+    extra_range = 0
     armor = 0
     dodge = 0
     speed = 0
@@ -55,13 +56,25 @@ class Player(sprite.Sprite):
     base_speed = 5  # meters per sec
 
     last_hit = 0
+    inmunity = 0.5  # in seconds
 
-    gun = Weapons(("gun", "basic"), 5, 0, 1, 0, 0, 0.5, 5, 1, 250, 1, 1, -50, 0, 25, 1, 0, 1)
-    infinity_gun = Weapons(("gun", "debug"), 0, 5, 5, 5, 5, 1/60, 100, 0, 1e5, 0, 5, 0, 0, 0, 0, 100, 0)
+    gun = Weapons(("gun", "basic"), 50, 0, 1, 0, 0, 0.5, 5, 1, 250, 1, 1, -50, 0, 25, 1, 0, 1)
+    infinity_gun = Weapons(("gun", "debug"), 1e7, 5, 5, 5, 5, 1 / 60, 100, 0, 1e5, 0, 5, 0, 0, 0, 0, 100, 0)
     knockback_gun = Weapons(("gun", "joke", "debug"), 0, 0, 0, 0, 0, 0.5, 0, 0, 250, 1, 0, -100, 5, 500, 10, 0, 0)
+    bounce_test = Weapons(("gun", "test"), 100, 0, 0, 0, 0, 0.5, 0, 0, 500, 0, 0, 0, 100, 0, 0, 0, 0)
+    pierce_test = Weapons(("gun", "test"), 1000, 0, 0, 0, 0, 1, 0, 0, 5000, 0, 10, 0, 0, 0, 0, 0, 0)
 
     weapons = []
-    last_attacked = [0]  # stores the last framed that each weapon attacked on
+    last_attacked = []  # stores the last framed that each weapon attacked on
+    weapon_location = []  # stores an array of the weapon locations
+
+    for i in range(len(weapons)):
+        last_attacked.append(0)
+        weapon_location.append([0, 0])
+
+    weapon_distance = 1
+    weapon_radian = 0
+    weapon_spin_speed = 10  # in seconds
     projectiles = pygame.sprite.Group()
 
     def __init__(self, viewport):
@@ -71,14 +84,18 @@ class Player(sprite.Sprite):
         self.image = Player.create_image(self.viewport, self.width, self.height)
         self.rect = self.image.get_rect()
 
-    def update(self, elapsed, arena_bounds):
+    def update(self, elapsed, arena_bounds, frame, enemys):
+        self.player_hit_by_enemys(frame, enemys)
+
         self.x += self.vx * elapsed
         self.y += self.vy * elapsed
 
         self.keep_player_on_map(arena_bounds)
 
+        self.set_weapon_locations()
+
         viewport_rect = self.viewport.convert_rect_to_screen(
-            (self.x, self.y, self.width, self.height)
+            (self.x - (self.width / 2), self.y + self.height / 2, self.width, self.height)
         )
 
         self.rect.x = viewport_rect.x
@@ -134,16 +151,36 @@ class Player(sprite.Sprite):
         for i in range(len(self.weapons)):
             weapon = self.weapons[i]
             if frame > self.last_attacked[i] + (weapon.use_time / (1 + self.attack_speed) * 60):
-                bullet = PlayerAttacks(self, weapon.damage, weapon.range + (self.range * weapon.range_modifier),
+                bullet = PlayerAttacks(self, i, weapon.damage,
+                                       weapon.range + (self.extra_range * weapon.range_modifier),
                                        weapon.pierce + self.peircing,
                                        weapon.pierce_damage + self.peircing_damage,
                                        weapon.bounces + self.bounces, weapon.knockback + self.knockback, weapon,
                                        self.viewport)
                 self.projectiles.add(bullet)
-                bullet.set_direction(self, enemys)
+                bullet.set_direction(enemys)
                 self.last_attacked[i] = frame
 
     def remove_bullets(self):
         for bullet in self.projectiles:
             if bullet.should_remove():
                 bullet.kill()
+
+    def set_weapon_locations(self):
+        if len(self.weapons) > 0:
+            tau = 6.283185307
+            self.weapon_radian += 1 / (self.weapon_spin_speed * 60) * tau
+            self.weapon_radian %= tau
+            radian_per_weapon = tau / len(self.weapons)
+            radian = self.weapon_radian
+            for location in self.weapon_location:
+                radian += radian_per_weapon
+                location[0] = self.x + self.weapon_distance * math.cos(radian)
+                location[1] = self.y + self.weapon_distance * math.sin(radian)
+
+    def player_hit_by_enemys(self, frame, enemys):
+        if frame > self.last_hit + self.inmunity * 60:
+            for enemy in enemys:
+                if pygame.Rect.colliderect(self.rect, enemy.rect):
+                    self.last_hit = frame
+                    self.hp -= enemy.power

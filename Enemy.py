@@ -6,9 +6,9 @@ import random
 class Enemy(pygame.sprite.Sprite):
     base_image = None
 
-    repulsion_strength = 0.01
+    repulsion_strength = 0.05
 
-    def __init__(self, x, y, hp, speed, typ, viewport, *groups: pygame.sprite.Sprite):
+    def __init__(self, x, y, hp, speed, power, typ, viewport, *groups: pygame.sprite.Sprite):
         super().__init__(*groups)
         self.x = x
         self.y = y
@@ -19,10 +19,13 @@ class Enemy(pygame.sprite.Sprite):
         self.speed = speed
         self.base_speed = 2.5
         self.type = typ
+        self.power = power
 
         self.image = pygame.Surface([1920, 1080])
         self.real_radius = 0.25
         self.radius = math.ceil(viewport.convert_width(self.real_radius))
+        self.width = self.real_radius * 2
+        self.height = self.real_radius * 2
 
         self.image = Enemy.create_base_image(self.radius * 2, self.radius * 2)
         self.rect = pygame.Rect(self.x, self.y, self.radius * 2, self.radius * 2)
@@ -59,7 +62,7 @@ class Enemy(pygame.sprite.Sprite):
 
         self.update_position(player, enemys, elapsed, arena_bounds)
 
-        self.rect = viewport.convert_rect_to_screen((self.x, self.y, self.real_radius * 2, self.real_radius * 2))
+        self.rect = viewport.convert_rect_to_screen((self.x - (self.width / 2), self.y + self.height / 2, self.width, self.height))
         self.image = Enemy.create_base_image(self.rect.w, self.rect.h)
 
     def repel_from_enemys(self, enemys):

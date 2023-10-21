@@ -6,11 +6,11 @@ import pygame
 class PlayerAttacks(pygame.sprite.Sprite):
     base_image = None
 
-    def __init__(self, player, weapon_dmg, rang, peirce, peirce_dmg, bounce, knockback, typ, viewport,
+    def __init__(self, player, index, weapon_dmg, rang, peirce, peirce_dmg, bounce, knockback, typ, viewport,
                  *groups: pygame.sprite.Sprite):
         super().__init__(*groups)
-        self.x = player.x + (random.randint(-5, 5) / 10)
-        self.y = player.y + (random.randint(-5, 5) / 10)
+        self.x = player.weapon_location[index][0]
+        self.y = player.weapon_location[index][1]
         self.vx = 0
         self.vy = 0
 
@@ -34,18 +34,20 @@ class PlayerAttacks(pygame.sprite.Sprite):
         self.image = PlayerAttacks.create_base_image(self.radius * 2, self.radius * 2)
         self.rect = pygame.Rect(self.x, self.y, self.radius * 2, self.radius * 2)
 
-    def set_direction(self, player, enemys):
-        move_speed = 10
-        enemy = None
-        if len(enemys) > 0:
-            enemy = sorted(enemys, key=lambda enemy: (enemy.x - player.x) ** 2 + (enemy.y - player.y) ** 2)[0]
-
+    def set_direction(self, enemys):
+        move_speed = 20 # meters per second
+        try:
+            sorted_enemys = sorted(enemys, key=lambda enemy: (enemy.x - self.x) ** 2 + (enemy.y - self.y) ** 2)
+            while sorted_enemys[0] in self.enemys_hit:
+                sorted_enemys.pop()
+            enemy = sorted_enemys[0]
             dx = enemy.x - self.x
             dy = enemy.y - self.y
             angle = math.atan2(dy, dx)
-        else:
-            angle = (random.randint(0, 200) / 100) * 3.14159
-
+            self.start_x = self.x
+            self.start_y = self.y
+        except IndexError:
+            angle = random.randint(0, 200) / 100 * 3.14
         self.vx = move_speed * math.cos(angle)
         self.vy = move_speed * math.sin(angle)
 
@@ -71,9 +73,10 @@ class PlayerAttacks(pygame.sprite.Sprite):
             enemy.y += -((self.knockback / 100) * math.sin(angle))
 
             if self.bounce > 0:
-                self.set_direction(player, enemys)
-            self.damage *= self.peirce_damage
-            self.peirce -= 1
+                self.set_direction(enemys)
+            else:
+                self.damage *= self.peirce_damage
+                self.peirce -= 1
 
     @staticmethod
     def create_base_image(width, height):
@@ -86,3 +89,4 @@ class PlayerAttacks(pygame.sprite.Sprite):
             pygame.draw.circle(image, color, (width / 2, height / 2), width / 2)
             PlayerAttacks.base_image = image
         return PlayerAttacks.base_image
+#
