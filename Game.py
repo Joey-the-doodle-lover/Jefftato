@@ -2,6 +2,8 @@ import math
 import random
 import time
 import pygame
+
+from FrameContext import FrameContext
 from Player import Player
 from Viewport import Viewport
 from Enemy import Enemy
@@ -57,6 +59,7 @@ class Game:
             current_time = time.time_ns()
             elapsed = (current_time - last_time) / 1e9
             last_time = current_time
+            frame_context = FrameContext(frame, self.viewport, self.arena_bounds, self.enemies)
 
             # Process events
             for event in pygame.event.get():
@@ -117,17 +120,17 @@ class Game:
             radius = self.viewport.convert_width(0.15)
             pygame.draw.circle(self.screen, (0, 255, 255), location, radius)
 
-    def wave_code(self, elapsed, sprites, frame):
+    def wave_code(self, elapsed, sprites, frame_context: FrameContext):
         # Update object positions, health, state, etc
         self.player.controls()
         self.viewport.move(self.arena_bounds, self.player)
 
-        sprites.update(elapsed, self.arena_bounds, frame, self.enemys)
+        sprites.update(elapsed, frame_context)
 
-        self.spawn_enemys(frame, self.wave, self.player)
-        self.enemys.update(elapsed, self.enemys, self.player, self.arena_bounds, self.viewport)
+        self.spawn_enemies(frame_context.frame, self.wave, self.player)
+        self.enemies.update(elapsed, self.enemies, self.player, self.arena_bounds, self.viewport)
 
-        self.player.generate_projectiles(frame, self.enemys)
+        self.player.generate_projectiles(frame_context.frame, self.enemies, self.viewport)
         self.player.remove_bullets()
 
         for bullet in self.player.projectiles:

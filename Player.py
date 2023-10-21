@@ -75,14 +75,19 @@ class Player(GameSprite):
 
     def __init__(self):
         super().__init__(dog_idle_animation)
+        self.cowering = False
 
-    def update(self, elapsed, arena_bounds, frame, enemys):
-        self.player_hit_by_enemys(frame, enemys)
+    def woof(self):
+        self.animation = dog_woof_animation
+        self.animation.reset()
 
-        self.x += self.vx * elapsed
-        self.y += self.vy * elapsed
+    def blush(self):
+        self.animation = dog_blush_animation
+        self.animation.reset()
 
-        self.keep_player_on_map(arena_bounds)
+    def update(self, elapsed, frame_context: FrameContext, *args):
+        super().update(elapsed, frame_context)
+        self.player_hit_by_enemies(frame_context.frame, frame_context.enemies)
 
         self.set_weapon_locations()
 
@@ -109,6 +114,7 @@ class Player(GameSprite):
             self.vy = -move_speed
         if keys_pressed[pygame.K_RIGHT] or keys_pressed[pygame.K_d]:
             self.vx = move_speed
+            self.flipped = True
         if abs(self.vx) > 0 and abs(self.vy) > 0:
             self.vx = (self.vx / math.sqrt(2))
             self.vy = (self.vy / math.sqrt(2))
@@ -137,7 +143,7 @@ class Player(GameSprite):
 
         return image
 
-    def generate_projectiles(self, frame, enemys):
+    def generate_projectiles(self, frame, enemies, viewport: Viewport):
         for i in range(len(self.weapons)):
             weapon = self.weapons[i]
             if frame > self.last_attacked[i] + (weapon.use_time / (1 + self.attack_speed) * 60):
@@ -146,7 +152,7 @@ class Player(GameSprite):
                                        weapon.pierce + self.peircing,
                                        weapon.pierce_damage + self.peircing_damage,
                                        weapon.bounces + self.bounces, weapon.knockback + self.knockback, weapon,
-                                       self.viewport)
+                                       viewport)
                 self.projectiles.add(bullet)
                 bullet.set_direction(enemies)
                 self.last_attacked[i] = frame
