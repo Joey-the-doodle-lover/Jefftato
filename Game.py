@@ -15,7 +15,7 @@ class Game:
         self.aspect_ratio = 1080 / 1920
 
         self.arena_bounds = (0.0, 0.0, 50.0, 50.0)  # 50 x 50 meters
-        zoom = 2
+        zoom = 1
         view_bounds = [15.0 * zoom, 15.0 * zoom, 20.0 * zoom, 20.0 * self.aspect_ratio * zoom]
         self.viewport = Viewport(screen, view_bounds)
 

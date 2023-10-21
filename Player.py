@@ -86,6 +86,13 @@ class Player(GameSprite):
 
         self.set_weapon_locations()
 
+        if (self.animation != dog_woof_animation and self.animation != dog_blush_animation) \
+                or self.animation.is_finished():
+            if abs(self.vx) > 0.0 or abs(self.vy) > 0.0:
+                self.animation = dog_run_animation
+            else:
+                self.animation = dog_cower_animation if self.cowering else dog_idle_animation
+
     def controls(self):
         self.vx = 0.0
         self.vy = 0.0
@@ -97,6 +104,7 @@ class Player(GameSprite):
             self.vy = move_speed
         if keys_pressed[pygame.K_LEFT] or keys_pressed[pygame.K_a]:
             self.vx = -move_speed
+            self.flipped = False
         if keys_pressed[pygame.K_DOWN] or keys_pressed[pygame.K_s]:
             self.vy = -move_speed
         if keys_pressed[pygame.K_RIGHT] or keys_pressed[pygame.K_d]:
@@ -104,6 +112,13 @@ class Player(GameSprite):
         if abs(self.vx) > 0 and abs(self.vy) > 0:
             self.vx = (self.vx / math.sqrt(2))
             self.vy = (self.vy / math.sqrt(2))
+
+        if keys_pressed[pygame.K_SPACE]:
+            self.woof()
+        elif keys_pressed[pygame.K_l]:
+            self.blush()
+
+        self.cowering = keys_pressed[pygame.K_c]
 
     @staticmethod
     def create_image(viewport, width, height):
