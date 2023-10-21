@@ -19,11 +19,11 @@ class Game:
         view_bounds = [15.0 * zoom, 15.0 * zoom, 20.0 * zoom, 20.0 * self.aspect_ratio * zoom]
         self.viewport = Viewport(screen, view_bounds)
 
-        self.player = Player(Viewport(screen, view_bounds))
+        self.player = Player()
         self.player.x = self.arena_bounds[0] + (self.arena_bounds[2] / 2)
         self.player.y = self.arena_bounds[1] + (self.arena_bounds[3] / 2)
 
-        self.enemys = pygame.sprite.Group()
+        self.enemies = pygame.sprite.Group()
 
         self.spot_count = int(
             ((self.arena_bounds[0] + self.arena_bounds[2]) * (self.arena_bounds[1] + self.arena_bounds[3])) / 5)
@@ -66,7 +66,7 @@ class Game:
             if self.state == "main menu":
                 self.main_menu()
             elif self.state == "wave":
-                self.wave_code(elapsed, sprites, frame)
+                self.wave_code(elapsed, sprites, frame_context)
 
             # finalize frame
             pygame.display.flip()
@@ -74,7 +74,7 @@ class Game:
             if frame % 60 == 0:
                 print(f"fps: {1 // elapsed}")
                 print(f"projectiles: {len(self.player.projectiles)}")
-                print(f"enemy count: {len(self.enemys)}")
+                print(f"enemy count: {len(self.enemies)}")
                 print("")
             clock.tick(fps)
 
@@ -100,11 +100,11 @@ class Game:
             size = self.viewport.convert_width(self.spots[(3 * i) + 2] / 2)
             pygame.draw.circle(self.screen, self.spot_color, location, size)
 
-    def spawn_enemys(self, frame, wave, player):
+    def spawn_enemies(self, frame, wave, player):
         if frame % 60 == 0:
-            for i in range(min(wave, self.enemy_cap - len(self.enemys))):
+            for i in range(min(wave, self.enemy_cap - len(self.enemies))):
                 enemy = Enemy(random.randint(0, 50), random.randint(0, 50), 5 * wave, 0, wave, "default", self.viewport)
-                self.enemys.add(enemy)
+                self.enemies.add(enemy)
                 # if the enemy spawns next to the player, it will teleport somewhere else.
                 while math.sqrt(((enemy.x - player.x) ** 2) +
                                 ((enemy.y - player.y) ** 2)) < 10:
@@ -131,9 +131,9 @@ class Game:
         self.player.remove_bullets()
 
         for bullet in self.player.projectiles:
-            for enemy in self.enemys:
+            for enemy in self.enemies:
                 if pygame.sprite.collide_circle(enemy, bullet):
-                    bullet.hit_enemy(enemy, self.player, self.enemys)
+                    bullet.hit_enemy(enemy, self.player, self.enemies)
 
             bullet.update(elapsed, self.viewport)
 
@@ -142,14 +142,14 @@ class Game:
 
         # Draw all objects
         sprites.draw(self.screen)
-        self.enemys.draw(self.screen)
+        self.enemies.draw(self.screen)
         self.player.projectiles.draw(self.screen)
         self.draw_weapons()
         draw_health_bar(self.player, self.screen)
 
         def end_wave():
             self.state = "shop"
-            for enemy in self.enemys:
+            for enemy in self.enemies:
                 enemy.kill()
             for bullet in self.player.projectiles:
                 bullet.kill()

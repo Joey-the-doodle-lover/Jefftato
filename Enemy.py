@@ -30,7 +30,7 @@ class Enemy(pygame.sprite.Sprite):
         self.image = Enemy.create_base_image(self.radius * 2, self.radius * 2)
         self.rect = pygame.Rect(self.x, self.y, self.radius * 2, self.radius * 2)
 
-    def update_position(self, player, enemys, elapsed, arena_bounds):
+    def update_position(self, player, enemies, elapsed, arena_bounds):
         move_speed = (1 + (self.speed / 100)) * self.base_speed
 
         dx = player.x - self.x
@@ -40,7 +40,7 @@ class Enemy(pygame.sprite.Sprite):
         self.vx = move_speed * math.cos(angle)
         self.vy = move_speed * math.sin(angle)
 
-        self.repel_from_enemys(enemys)
+        self.repel_from_enemies(enemies)
 
         self.x += self.vx * elapsed
         self.y += self.vy * elapsed
@@ -57,16 +57,16 @@ class Enemy(pygame.sprite.Sprite):
         if self.y < arena_bounds[1]:
             self.y = arena_bounds[1]
 
-    def update(self, elapsed, enemys, player, arena_bounds, viewport):
+    def update(self, elapsed, enemies, player, arena_bounds, viewport):
         self.remove_dead()
 
-        self.update_position(player, enemys, elapsed, arena_bounds)
+        self.update_position(player, enemies, elapsed, arena_bounds)
 
         self.rect = viewport.convert_rect_to_screen((self.x - (self.width / 2), self.y + self.height / 2, self.width, self.height))
         self.image = Enemy.create_base_image(self.rect.w, self.rect.h)
 
-    def repel_from_enemys(self, enemys):
-        for enemy in enemys:
+    def repel_from_enemies(self, enemies):
+        for enemy in enemies:
             distance = (((self.x - enemy.x) ** 2) + ((self.y - enemy.y) ** 2)) * 0.5
             if distance < 2:
                 try:

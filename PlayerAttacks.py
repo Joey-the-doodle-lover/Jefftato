@@ -25,7 +25,7 @@ class PlayerAttacks(pygame.sprite.Sprite):
         self.knockback = knockback
         self.type = typ
 
-        self.enemys_hit = []
+        self.enemies_hit = []
 
         self.color = (255, 255, 0)
 
@@ -34,13 +34,13 @@ class PlayerAttacks(pygame.sprite.Sprite):
         self.image = PlayerAttacks.create_base_image(self.radius * 2, self.radius * 2)
         self.rect = pygame.Rect(self.x, self.y, self.radius * 2, self.radius * 2)
 
-    def set_direction(self, enemys):
-        move_speed = 20 # meters per second
+    def set_direction(self, enemies):
+        move_speed = 20  # meters per second
         try:
-            sorted_enemys = sorted(enemys, key=lambda enemy: (enemy.x - self.x) ** 2 + (enemy.y - self.y) ** 2)
-            while sorted_enemys[0] in self.enemys_hit:
-                sorted_enemys.pop()
-            enemy = sorted_enemys[0]
+            sorted_enemies = sorted(enemies, key=lambda enemy: (enemy.x - self.x) ** 2 + (enemy.y - self.y) ** 2)
+            while sorted_enemies[0] in self.enemies_hit:
+                sorted_enemies.pop()
+            enemy = sorted_enemies[0]
             dx = enemy.x - self.x
             dy = enemy.y - self.y
             angle = math.atan2(dy, dx)
@@ -60,9 +60,9 @@ class PlayerAttacks(pygame.sprite.Sprite):
     def should_remove(self):
         return math.sqrt(((self.start_x - self.x) ** 2) + (self.start_y - self.y) ** 2) > self.range or self.peirce < 0
 
-    def hit_enemy(self, enemy, player, enemys):
-        if enemy not in self.enemys_hit:
-            self.enemys_hit.append(enemy)
+    def hit_enemy(self, enemy, player, enemies):
+        if enemy not in self.enemies_hit:
+            self.enemies_hit.append(enemy)
             enemy.hp -= self.damage
 
             # applys knockback on the enemy
@@ -73,7 +73,7 @@ class PlayerAttacks(pygame.sprite.Sprite):
             enemy.y += -((self.knockback / 100) * math.sin(angle))
 
             if self.bounce > 0:
-                self.set_direction(enemys)
+                self.set_direction(enemies)
             else:
                 self.damage *= self.peirce_damage
                 self.peirce -= 1

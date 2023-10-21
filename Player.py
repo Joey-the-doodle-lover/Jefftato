@@ -1,19 +1,15 @@
 import math
 import pygame
-from pygame import sprite
+
+from FrameContext import FrameContext
 from PlayerAttacks import PlayerAttacks
+from Viewport import Viewport
 from Weapons import Weapons
+from animation import ImageLoader, Animation
+from GameSprite import GameSprite
 
 
-class Player(sprite.Sprite):
-    x = 0
-    y = 0
-    vx = 0
-    vy = 0
-
-    height = 0.3
-    width = 0.6
-
+class Player(GameSprite):
     level = 1
     xp = 0
     hp = 50
@@ -77,12 +73,8 @@ class Player(sprite.Sprite):
     weapon_spin_speed = 10  # in seconds
     projectiles = pygame.sprite.Group()
 
-    def __init__(self, viewport):
-        super().__init__()
-
-        self.viewport = viewport
-        self.image = Player.create_image(self.viewport, self.width, self.height)
-        self.rect = self.image.get_rect()
+    def __init__(self):
+        super().__init__(dog_idle_animation)
 
     def update(self, elapsed, arena_bounds, frame, enemys):
         self.player_hit_by_enemys(frame, enemys)
@@ -93,23 +85,6 @@ class Player(sprite.Sprite):
         self.keep_player_on_map(arena_bounds)
 
         self.set_weapon_locations()
-
-        viewport_rect = self.viewport.convert_rect_to_screen(
-            (self.x - (self.width / 2), self.y + self.height / 2, self.width, self.height)
-        )
-
-        self.rect.x = viewport_rect.x
-        self.rect.y = viewport_rect.y
-
-    def keep_player_on_map(self, arena_bounds):
-        if self.x > arena_bounds[2]:
-            self.x = arena_bounds[2]
-        if self.x < arena_bounds[0]:
-            self.x = arena_bounds[0]
-        if self.y > arena_bounds[3]:
-            self.y = arena_bounds[3]
-        if self.y < arena_bounds[1]:
-            self.y = arena_bounds[1]
 
     def controls(self):
         self.vx = 0.0
@@ -158,7 +133,7 @@ class Player(sprite.Sprite):
                                        weapon.bounces + self.bounces, weapon.knockback + self.knockback, weapon,
                                        self.viewport)
                 self.projectiles.add(bullet)
-                bullet.set_direction(enemys)
+                bullet.set_direction(enemies)
                 self.last_attacked[i] = frame
 
     def remove_bullets(self):
@@ -178,9 +153,17 @@ class Player(sprite.Sprite):
                 location[0] = self.x + self.weapon_distance * math.cos(radian)
                 location[1] = self.y + self.weapon_distance * math.sin(radian)
 
-    def player_hit_by_enemys(self, frame, enemys):
+    def player_hit_by_enemies(self, frame, enemies):
         if frame > self.last_hit + self.inmunity * 60:
-            for enemy in enemys:
+            for enemy in enemies:
                 if pygame.Rect.colliderect(self.rect, enemy.rect):
                     self.last_hit = frame
                     self.hp -= enemy.power
+
+
+image_loader = ImageLoader('assets/jeff')
+dog_run_animation = Animation(image_loader.load_images('dog-run'), 0.2)
+dog_idle_animation = Animation(image_loader.load_images('dog-idle'), 0.4)
+dog_woof_animation = Animation(image_loader.load_images('dog-woof'), 0.25, False)
+dog_blush_animation = Animation(image_loader.load_images('dog-blush'), 0.35, False)
+dog_cower_animation = Animation(image_loader.load_images('dog-cower'), 0.3)
