@@ -7,7 +7,7 @@ from FrameContext import FrameContext
 from Player import Player
 from Viewport import Viewport
 from Enemy import Enemy
-from ui import draw_health_bar
+from ui import draw_health_bar, draw_stamina_bar
 
 
 class Game:
@@ -106,13 +106,11 @@ class Game:
     def spawn_enemies(self, frame, wave, player):
         if frame % 60 == 0:
             for i in range(min(wave, self.enemy_cap - len(self.enemies))):
-                enemy = Enemy(random.randint(0, 50), random.randint(0, 50), 5 * wave, 0, wave, "default", self.viewport)
+                enemy = Enemy(
+                    random.randint(int(self.arena_bounds[0] * 100), int(self.arena_bounds[2] * 100)) / 100,
+                    random.randint(int(self.arena_bounds[1] * 100), int(self.arena_bounds[3] * 100)) / 100,
+                    5 * wave, 0, wave, "default", self.viewport)
                 self.enemies.add(enemy)
-                # if the enemy spawns next to the player, it will teleport somewhere else.
-                while math.sqrt(((enemy.x - player.x) ** 2) +
-                                ((enemy.y - player.y) ** 2)) < 10:
-                    enemy.x = random.randint(0, 50)
-                    enemy.y = random.randint(0, 50)
 
     def draw_weapons(self):
         for weapon in self.player.weapon_location:
@@ -122,20 +120,20 @@ class Game:
 
     def wave_code(self, elapsed, sprites, frame_context: FrameContext):
         # Update object positions, health, state, etc
-        self.player.controls()
+        self.player.controls(self.enemies, frame_context)
         self.viewport.move(self.arena_bounds, self.player)
 
         sprites.update(elapsed, frame_context)
 
         self.spawn_enemies(frame_context.frame, self.wave, self.player)
-        self.enemies.update(elapsed, self.enemies, self.player, self.arena_bounds, self.viewport)
+        self.enemies.update(elapsed, self.enemies, self.player, frame_context)
 
         self.player.generate_projectiles(frame_context.frame, self.enemies, self.viewport)
         self.player.remove_bullets()
 
         for bullet in self.player.projectiles:
             for enemy in self.enemies:
-                if pygame.sprite.collide_circle(enemy, bullet):
+                if pygame.sprite.collide_rect(enemy, bullet):
                     bullet.hit_enemy(enemy, self.player, self.enemies)
 
             bullet.update(elapsed, self.viewport)
@@ -149,6 +147,7 @@ class Game:
         self.player.projectiles.draw(self.screen)
         self.draw_weapons()
         draw_health_bar(self.player, self.screen)
+        draw_stamina_bar(self.player, self.screen)
 
         def end_wave():
             self.state = "shop"

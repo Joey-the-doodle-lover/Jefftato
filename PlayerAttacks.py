@@ -66,11 +66,7 @@ class PlayerAttacks(pygame.sprite.Sprite):
             enemy.hp -= self.damage
 
             # applys knockback on the enemy
-            dx = self.x - enemy.x
-            dy = self.y - enemy.y
-            angle = math.atan2(dy, dx)
-            enemy.x += -((self.knockback / 100) * math.cos(angle))
-            enemy.y += -((self.knockback / 100) * math.sin(angle))
+            enemy.knockbacked(self.x, self.y, self.knockback / 100)
 
             if self.bounce > 0:
                 self.set_direction(enemies)

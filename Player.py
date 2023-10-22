@@ -7,14 +7,21 @@ from Viewport import Viewport
 from Weapons import Weapons
 from animation import ImageLoader, Animation
 from GameSprite import GameSprite
+from RandomFunctions import locate_element, mean_list, replace_element
 
 
 class Player(GameSprite):
     level = 1
     xp = 0
-    hp = 50
-    max_hp = 50
+    max_hp = 100
+    hp = max_hp
+    max_stamina = 100
+    stamina = max_stamina
     kibble = 30
+
+    woof_cooldown = 0
+    dash_cooldown = 0
+    dash_end = 0
 
     regeneration = 0
     life_steal = 0
@@ -26,7 +33,7 @@ class Player(GameSprite):
     crit_chance = 0
     engineering = 0
     extra_range = 0
-    armor = 0
+    armor = 10
     dodge = 0
     speed = 0
     luck = 0
@@ -76,10 +83,19 @@ class Player(GameSprite):
     def __init__(self):
         super().__init__(dog_idle_animation)
         self.cowering = False
+        self.cowering_last_frame = False
 
-    def woof(self):
+    def woof(self, enemies, frame):
         self.animation = dog_woof_animation
         self.animation.reset()
+
+        for enemy in enemies:
+            if math.sqrt(((self.x - enemy.x) ** 2) + ((self.y - enemy.y) ** 2)) < 10:
+                enemy.knockbacked(self.x, self.y, 5)
+                enemy.unstuned = frame + 300
+
+        self.stamina -= 25
+        self.woof_cooldown = frame + 300
 
     def blush(self):
         self.animation = dog_blush_animation
@@ -98,33 +114,60 @@ class Player(GameSprite):
             else:
                 self.animation = dog_cower_animation if self.cowering else dog_idle_animation
 
-    def controls(self):
-        self.vx = 0.0
-        self.vy = 0.0
-
-        move_speed = (1.0 + (self.speed / 100.0)) * self.base_speed
+    def controls(self, enemies, frame_context):
+        angle = []
 
         keys_pressed = pygame.key.get_pressed()
-        if keys_pressed[pygame.K_UP] or keys_pressed[pygame.K_w]:
-            self.vy = move_speed
-        if keys_pressed[pygame.K_LEFT] or keys_pressed[pygame.K_a]:
-            self.vx = -move_speed
-            self.flipped = False
-        if keys_pressed[pygame.K_DOWN] or keys_pressed[pygame.K_s]:
-            self.vy = -move_speed
-        if keys_pressed[pygame.K_RIGHT] or keys_pressed[pygame.K_d]:
-            self.vx = move_speed
-            self.flipped = True
-        if abs(self.vx) > 0 and abs(self.vy) > 0:
-            self.vx = (self.vx / math.sqrt(2))
-            self.vy = (self.vy / math.sqrt(2))
+        if not self.cowering:
+            if keys_pressed[pygame.K_UP] or keys_pressed[pygame.K_w]:
+                angle.append(0.0)
+            if keys_pressed[pygame.K_RIGHT] or keys_pressed[pygame.K_d]:
+                angle.append(0.5)
+            if keys_pressed[pygame.K_DOWN] or keys_pressed[pygame.K_s]:
+                angle.append(1.0)
+            if keys_pressed[pygame.K_LEFT] or keys_pressed[pygame.K_a]:
+                angle.append(1.5)
 
-        if keys_pressed[pygame.K_SPACE]:
-            self.woof()
+        #  remove oppisite angles
+        if 0.0 in angle and 1.0 in angle:
+            angle.pop(locate_element(angle, 0.0)[0])
+            angle.pop(locate_element(angle, 1.0)[0])
+        if 0.5 in angle and 1.5 in angle:
+            angle.pop(locate_element(angle, 0.5)[0])
+            angle.pop(locate_element(angle, 1.5)[0])
+
+        if 0.0 in angle and 1.5 in angle:
+            angle = replace_element(angle, 0.0, 2.0)
+
+        self.vx = 0.0
+        self.vy = 0.0
+        move_speed = (1.0 + (self.speed / 100.0)) * self.base_speed
+        if self.dash_end > frame_context.frame:
+            move_speed *= 10
+        pi = 3.1415926535897932384626433
+        if len(angle) > 0:
+            angle = mean_list(angle)
+            if angle > 1:
+                self.flipped = False
+            elif angle < 1:
+                self.flipped = True
+            self.vx = move_speed * math.sin(angle * pi)
+            self.vy = move_speed * math.cos(angle * pi)
+
+        if keys_pressed[pygame.K_SPACE] and self.woof_cooldown < frame_context.frame:
+            self.woof(enemies, frame_context.frame)
         elif keys_pressed[pygame.K_l]:
             self.blush()
+        elif keys_pressed[pygame.K_f] and self.dash_cooldown < frame_context.frame:
+            self.dash_end = frame_context.frame + 12
+            self.dash_cooldown = frame_context.frame + 180
+            self.inmunity = 0.2
+            self.last_hit = frame_context.frame
+            self.stamina -= 10
 
+        self.cowering_last_frame = self.cowering
         self.cowering = keys_pressed[pygame.K_c]
+        self.cower()
 
     @staticmethod
     def create_image(viewport, width, height):
@@ -179,7 +222,16 @@ class Player(GameSprite):
             for enemy in enemies:
                 if pygame.Rect.colliderect(self.rect, enemy.rect):
                     self.last_hit = frame
-                    self.hp -= enemy.power
+                    self.hp -= enemy.power / (1 + (self.armor / 15))
+
+    def cower(self):
+        if self.cowering and not self.cowering_last_frame:
+            self.armor = max(2 * (self.armor + 5), self.armor)
+        if not self.cowering and self.cowering_last_frame:
+            self.armor = min((self.armor / 2) - 5, self.armor)
+
+        if self.cowering:
+            self.stamina -= 100 / (15 * 60)
 
 
 image_loader = ImageLoader('assets/jeff')
