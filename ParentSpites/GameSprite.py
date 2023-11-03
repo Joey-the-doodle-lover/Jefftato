@@ -1,5 +1,5 @@
 from FrameContext import FrameContext
-from animation import AnimatedSprite, Animation
+from ParentSpites.animation import AnimatedSprite, Animation
 
 
 class GameSprite(AnimatedSprite):

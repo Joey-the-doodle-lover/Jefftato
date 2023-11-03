@@ -2,7 +2,7 @@
 class Weapons:
     def __init__(self, types, damage, bonus_from_melee, bonus_from_range, bonus_from_element, bonus_from_engin,
                  use_time, crit_chance, crit_chance_mod, base_range, range_modifier, pierce, pierce_damage, bounces,
-                 knockback, knockback_modifier, life_steal, life_steal_modifier):
+                 knockback, knockback_modifier, life_steal, life_steal_modifier, explode):
         self.types = types  # tuple of the types. ex: (gun, explosion)
         self.damage = damage
         self.bonus_from_melee = bonus_from_melee  # multiplys this by the players melee damage and adds to damage
@@ -21,3 +21,4 @@ class Weapons:
         self.knockback_modifier = knockback_modifier
         self.life_steal = life_steal  # % chance to heal 1 on hit
         self.life_steal_modifier = life_steal_modifier
+        self.explode = explode

@@ -1,13 +1,14 @@
-import math
 import random
 import time
 import pygame
 
 from FrameContext import FrameContext
-from Player import Player
+from ParentSpites.GameSprite import GameSprite
+from GameSprites.Player import Player
 from Viewport import Viewport
-from Enemy import Enemy
-from ui import draw_health_bar, draw_stamina_bar
+from GameSprites.Enemy import Enemy
+from ParentSpites.animation import ImageLoader, Animation
+from ui import draw_health_bar, draw_stamina_bar, draw_ability_cooldowns
 
 
 class Game:
@@ -27,18 +28,13 @@ class Game:
 
         self.enemies = pygame.sprite.Group()
 
-        self.spot_count = int(
-            ((self.arena_bounds[0] + self.arena_bounds[2]) * (self.arena_bounds[1] + self.arena_bounds[3])) / 5)
-        self.spot_color = (0, 255, 0)
-        self.spot_size_range = (5, 50)  # in cm
-        self.spots = []
-        self.background_color = (100, 50, 0)
+        self.water = BackgroundSprite(25, water)
+        self.sand = BackgroundSprite(0, sand)
+        self.grass = BackgroundSprite(-5, grass)
 
-        self.wave = 5
+        self.wave = 20
         self.state = "wave"
         self.enemy_cap = 200
-
-        # self.font = pygame.font.Font("arial", 16)
 
     def run(self):
         pygame.font.init()
@@ -47,10 +43,10 @@ class Game:
         last_time = clock.get_time()
         frame = 0
 
-        self.generate_spots()
+        previus = 0
 
         sprites = pygame.sprite.Group()
-        sprites.add(self.player)
+        sprites.add(self.water, self.sand, self.grass, self.player)
 
         running = True
         # Main game loop
@@ -75,33 +71,15 @@ class Game:
             pygame.display.flip()
             frame += 1
             if frame % 60 == 0:
-                print(f"fps: {1 // elapsed}")
+                new = time.time_ns()
+                passed = (current_time - previus) / 1e9
+                previus = new
+
+                print(f"fps: {round(60 / passed, 3)}")
                 print(f"projectiles: {len(self.player.projectiles)}")
-                print(f"enemy count: {len(self.enemies)}")
-                print("")
+                print(f"explosions: {len(self.player.explosions)}")
+                print(f"enemy count: {len(self.enemies)}\n")
             clock.tick(fps)
-
-    def generate_spots(self):
-        for i in range(self.spot_count):
-            self.spots.append(random.randint(int(self.arena_bounds[0]),
-                                             int(self.arena_bounds[0]) + int(self.arena_bounds[2] * 100)) / 100)
-            self.spots.append(random.randint(int(self.arena_bounds[1]),
-                                             int(self.arena_bounds[1]) + int(self.arena_bounds[3] * 100)) / 100)
-            self.spots.append(random.randint(self.spot_size_range[0], self.spot_size_range[1]) / 100)
-
-    def draw_background(self):
-        self.screen.fill((0, 0, 255))
-        pygame.draw.rect(self.screen, self.background_color, self.viewport.convert_rect_to_screen((self.arena_bounds[0],
-                                                                                                   self.arena_bounds[
-                                                                                                       1] +
-                                                                                                   self.arena_bounds[3],
-                                                                                                   self.arena_bounds[2],
-                                                                                                   self.arena_bounds[
-                                                                                                       3])))
-        for i in range(self.spot_count):
-            location = self.viewport.convert_point_to_screen((self.spots[3 * i], self.spots[(3 * i) + 1]))
-            size = self.viewport.convert_width(self.spots[(3 * i) + 2] / 2)
-            pygame.draw.circle(self.screen, self.spot_color, location, size)
 
     def spawn_enemies(self, frame, wave, player):
         if frame % 60 == 0:
@@ -109,8 +87,11 @@ class Game:
                 enemy = Enemy(
                     random.randint(int(self.arena_bounds[0] * 100), int(self.arena_bounds[2] * 100)) / 100,
                     random.randint(int(self.arena_bounds[1] * 100), int(self.arena_bounds[3] * 100)) / 100,
-                    5 * wave, 0, wave, "default", self.viewport)
+                    5 * wave, 0, wave, "default")
                 self.enemies.add(enemy)
+                while (((self.player.x - enemy.x) ** 2) + ((self.player.x - enemy.x) ** 2) ** 0.5) < 5:
+                    enemy.x = random.randint(int(self.arena_bounds[0] * 100), int(self.arena_bounds[2] * 100)) / 100
+                    enemy.y = random.randint(int(self.arena_bounds[1] * 100), int(self.arena_bounds[3] * 100)) / 100
 
     def draw_weapons(self):
         for weapon in self.player.weapon_location:
@@ -128,26 +109,27 @@ class Game:
         self.spawn_enemies(frame_context.frame, self.wave, self.player)
         self.enemies.update(elapsed, self.enemies, self.player, frame_context)
 
-        self.player.generate_projectiles(frame_context.frame, self.enemies, self.viewport)
+        self.player.generate_projectiles(frame_context.frame, self.enemies)
         self.player.remove_bullets()
 
         for bullet in self.player.projectiles:
             for enemy in self.enemies:
                 if pygame.sprite.collide_rect(enemy, bullet):
-                    bullet.hit_enemy(enemy, self.player, self.enemies)
+                    bullet.hit_enemy(enemy, self.player, self.enemies, frame_context)
 
-            bullet.update(elapsed, self.viewport)
+            bullet.update(elapsed, frame_context)
 
-        # Draw background
-        self.draw_background()
+        self.player.explosions.update(elapsed, frame_context)
 
         # Draw all objects
         sprites.draw(self.screen)
+        self.player.explosions.draw(self.screen)
         self.enemies.draw(self.screen)
         self.player.projectiles.draw(self.screen)
         self.draw_weapons()
         draw_health_bar(self.player, self.screen)
         draw_stamina_bar(self.player, self.screen)
+        draw_ability_cooldowns(self.player, frame_context.frame, self.screen)
 
         def end_wave():
             self.state = "shop"
@@ -155,3 +137,23 @@ class Game:
                 enemy.kill()
             for bullet in self.player.projectiles:
                 bullet.kill()
+
+
+class BackgroundSprite(GameSprite):
+    def __init__(self, extra_space, animation):
+        super().__init__(animation)
+        self.extra = extra_space
+
+    def update(self, elapsed, frame_context):
+        super().update(elapsed, frame_context)
+        arena_bounds = frame_context.arena_bounds
+        self.width = arena_bounds[2] + (2 * self.extra)
+        self.height = arena_bounds[3] + (2 * self.extra)
+        self.x = arena_bounds[0] - self.extra + (self.width / 2)
+        self.y = arena_bounds[1] - self.extra + (self.height / 2)
+
+
+image_loader = ImageLoader('assets/background')
+grass = Animation(image_loader.load_images('grass'), 2)
+water = Animation(image_loader.load_images('ocean'))
+sand = Animation(image_loader.load_images('beach'))

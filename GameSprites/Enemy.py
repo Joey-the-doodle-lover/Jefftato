@@ -1,18 +1,18 @@
 import math
-import pygame
-import random
 
-from GameSprite import GameSprite
-from animation import ImageLoader, Animation
+from ParentSpites.GameSprite import GameSprite
+from ParentSpites.animation import ImageLoader, Animation
 
 
 class Enemy(GameSprite):
     base_image = None
-
+    knockbacked = False
     repulsion_strength = 0.05
 
-    def __init__(self, x, y, hp, speed, power, typ, viewport, *groups: pygame.sprite.Sprite):
+    def __init__(self, x, y, hp, speed, power, typ):
         super().__init__(enemy_temp_image)
+        self.x = x
+        self.y = y
         self.flipped = False
 
         self.hp = hp
@@ -27,22 +27,22 @@ class Enemy(GameSprite):
         self.height = self.real_radius * 2
 
     def get_velocity(self, player, frame):
-        if frame > self.unstuned:
-            move_speed = (1 + (self.speed / 100)) * self.base_speed
-            dx = player.x - self.x
-            dy = player.y - self.y
-            angle = math.atan2(dy, dx)
-            self.vx = move_speed * math.cos(angle)
-            self.vy = move_speed * math.sin(angle)
+        if frame > self.knockbacked:
+            if frame > self.unstuned:
+                move_speed = (1 + (self.speed / 100)) * self.base_speed
+                dx = player.x - self.x
+                dy = player.y - self.y
+                angle = math.atan2(dy, dx)
+                self.vx = move_speed * math.cos(angle)
+                self.vy = move_speed * math.sin(angle)
+            else:
+                self.vx = 0
+                self.vy = 0
 
-            pi = 3.1415926535897932384626433
-            if angle > pi:
-                self.flipped = False
-            elif angle < pi:
-                self.flipped = True
-        else:
-            self.vx = 0
-            self.vy = 0
+        if self.vx < 0:
+            self.flipped = False
+        elif self.vx > 0:
+            self.flipped = True
 
     def update(self, elapsed, enemies, player, frame_context):
         self.get_velocity(player, frame_context.frame)
@@ -50,21 +50,6 @@ class Enemy(GameSprite):
         super().update(elapsed, frame_context)
 
         self.remove_dead()
-
-
-
-
-    @staticmethod
-    def create_base_image(width, height):
-        if Enemy.base_image is None \
-                or Enemy.base_image.get_width() != width \
-                or Enemy.base_image.get_height() != height:
-            image = pygame.Surface([width, height], pygame.SRCALPHA)
-            image.fill((0, 0, 0, 0))
-            color = (255, 0, 0)
-            pygame.draw.circle(image, color, (width / 2, height / 2), width / 2)
-            Enemy.base_image = image
-        return Enemy.base_image
 
     def repel_from_enemies(self, enemies):
         for enemy in enemies:
@@ -85,12 +70,13 @@ class Enemy(GameSprite):
         if self.hp <= 0:
             self.kill()
 
-    def knockbacked(self, x, y, distance):
-        dx = self.x - x
-        dy = self.y - y
+    def knockback(self, hit_from, speed, duration, frame):
+        dx = hit_from[0] - self.x
+        dy = hit_from[1] - self.y
         angle = math.atan2(dy, dx)
-        self.x += (distance * math.cos(angle))
-        self.y += (distance * math.sin(angle))
+        self.vx = -(speed * math.cos(angle))
+        self.vy = -(speed * math.sin(angle))
+        self.knockbacked = frame + duration
 
 
 image_loader = ImageLoader('assets/enemy')

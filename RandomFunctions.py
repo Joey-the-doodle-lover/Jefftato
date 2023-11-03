@@ -18,7 +18,6 @@ def mean_list(array: list):
 
 def replace_element(array: list, original, new):
     locations = locate_element(array, original)
-    print(locations)
     for location in locations:
         array = array[:location] + [new] + array[location + 1:]
     return array
