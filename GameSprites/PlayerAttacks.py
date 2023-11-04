@@ -31,8 +31,8 @@ class PlayerAttacks(GameSprite):
         self.crit_chance = (player.crit_chance * weapon.crit_chance_modifier) + weapon.crit_chance
         self.life_steal_chance = (player.life_steal * weapon.life_steal_modifier) + weapon.life_steal
 
-        self.explosion = weapon.explode
-        self.explosion_radius = 1 * (1 + player.explosion_size)
+        self.explosion = weapon.explode or player.force_explosion
+        self.explosion_radius = 1 * (1 + player.explosion_size / 100)
         self.explosion_damage = self.damage * (1 + (player.explosion_damage / 100))
 
         self.enemies_hit = []
@@ -88,7 +88,7 @@ class PlayerAttacks(GameSprite):
 
 
             # applys knockback on the enemy
-            enemy.knockback((self.x, self.y), self.knockback / 50, 30, frame_context.frame)
+            enemy.knockback((self.x, self.y), self.knockback / 50, 30)
 
             if self.bounce > 0:
                 self.set_direction(enemies)

@@ -1,5 +1,6 @@
 import math
 import pygame
+import random
 
 from FrameContext import FrameContext
 from GameSprites.PlayerAttacks import PlayerAttacks
@@ -10,97 +11,140 @@ from RandomFunctions import locate_element, mean_list, replace_element
 
 
 class Player(GameSprite):
-    level = 1
-    xp = 0
-    max_hp = 50
-    hp = max_hp
-    max_stamina = 100
-    stamina = max_stamina
-    kibble = 30
+    """
+    the following are the stats of the player
+    it is currently incomplete, so more will be added as needed
+    most of these haven't been implimented yet:
+    lacks kibble stat
+    lacks xp stats
+    lacks boss damage increase, along with a boss enemy to apply it to
+    lacks fire
+    lacks luck, or anything to apply it to
+    lacks consumable stats, or treats to apply it to
+    """
+    # xp stats
+    xp = 0  # a subunit of a level. collect enough xp to level up
+    xp_gain = 0  # % percent increase in xp gained
+    level = 1  # these provide stat improvements
 
-    woof_cooldown = 0
-    dash_cooldown = 0
-    dash_end = 0
+    # health and stamina
+    max_hp = 50  # max hp is the cap on player life
+    hp = max_hp  # hp is the hitpoints a player has until they die
+    max_stamina = 100  # the maximum stamina of the player
+    stamina = max_stamina  # stamina is a stat that feuls special abilitys
 
-    hp_regeneration = 1
-    stamina_regeneration = 5
-    life_steal = 20
-    damage = 100
-    melee_damage = 10
-    ranged_damage = 60
-    elemental_damage = 20
-    attack_speed = 1.78
-    crit_chance = 25
-    engineering = 20
-    extra_range = 200
-    armor = 20
-    dodge = 30
-    speed = 50
-    luck = 0
-    harvesting = 0
-    consumable_heal = 0
-    kibble_heal_chance = 0
-    xp_gain = 0
-    pick_up_range = 0
-    shop_price = 0
-    explosion_damage = 5000
-    explosion_size = 1
-    bounces = 0
-    peircing = 0
-    peircing_damage = 0
-    boss_damage = 0
-    burn_speed = 0
-    burn_spread = 0
-    knockback = 0
-    double_kibble_chance = 0
-    treet_box_value = 0
-    free_rerolls = 0
+    # kibble, the currancy of jefftato
+    kibble = 0  # the currancy of the game
+    sharking = 0  # kibble gained at the end of each round
+    double_kibble_chance = 0  # % chance to get 2 kibble instead of 1
+    kibble_heal_chance = 0  # % chance to heal when picking up kibble
+    pick_up_range = 0  # % increase to distance kibble is attracted to you from
+    treet_box_value = 0  # number of kibble earned from a treat box
+    shop_price = 0  # % increase in shop prices
+    free_rerolls = 0  # number of free rerolls granted in the shop each wave
 
-    base_speed = 5
+    # abilitys
+    woof_remaining_cooldown = 0  # time remaining on the cooldown of a woof in seconds
+    woof_cooldown_length = 10  # length of cooldown on a woof in seconds
+    dash_remaining_cooldown = 0  # time remaining on the cooldown of a dash in seconds
+    dash_cooldown_length = 3  # length of cooldown on a dash in seconds
+    dash_time = 0  # time remaining on a dash in seconds
+    dash_duration = 0.25  # the number of seconds a dash lasts
 
-    next_hittable = 0
+    # immunity
+    next_hittable = 0  # number of seconds until player can be hit by enemy again
+    immunity_duration = 0.5  # immunity frame duration after being hit by an enemy
+
+    # hp related modifiers
+    hp_regeneration = 1  # amount of hp regenerated passsivly per second
+    life_steal = 20  # bonus percentant chance on a weapon to heal 1 hp on hit
+    armor = 20  # reduces percent damage the player takes by 1 / (1 + (x / 15))
+    dodge = 30  # % chance to dodge an attack
+    dodge_cap = 90  # maximum dodge chance
+
+    # stamina related modifiers
+    stamina_regeneration = 5  # amount of stamina recovered passivly per second
+
+    # damage related modifiers
+    damage = 100  # % increase in damage
+    attack_speed = 0  # % increase in attack speed
+    crit_chance = 25  # % increase in dealing double damage
+    melee_damage = 10  # deal x bonus damage on melee weapons
+    ranged_damage = 60  # deal x bonus damage on ranged weapons
+    elemental_damage = 20  # deal x bonus damage on elemental weapons
+    engineering = 20  # deal x bonus damage on engineering weapons
+    boss_damage = 0  # % increase in damage to boss type enemys
+
+    # projectile modifiers
+    extra_range = 200  # extra centimeters traveled by a projectile
+    bounces = 0  # number of times a projectile will bounce off of a target
+    peircing = 0  # number of times a projectile will go through a target
+    peircing_damage = 0  # % increase in damage after each pierce
+
+    # movement
+    base_speed = 5  # mps of movement
+    speed = 50  # % speed increase
+
+    # explosions:
+    explosion_damage = 0  # % increase to the explosive power an explosion
+    explosion_size = 0  # % increase to the size of an explosion
+    force_explosion = False  # will make a bullet projectile always explode
+
+    # fire
+    burn_speed = 0  # the speed fire applys damage
+    burn_spread = 0  # the number of times a fire can spread
+
+    knockback = 0  # pushes the enemys this many centimeters based on where they were hit
+    luck = 0  # will impact a variety of things in game, from item rarity, to treat chance, and more.
+    consumable_heal = 0  # bonus health gained from treats
+
+    """
+    the following are the weapons of the player
+    """
 
     gun = Weapons(("gun", "basic"), 5, 0, 1, 0, 0, 0.5, 5, 1, 250, 1, 0, -50, 0, 100, 1, 0, 1, False)
     fast_gun = Weapons(("gun"), 3, 0, 1, 0, 0, 0.25, 5, 1, 500, 1, 0, -50, 0, 25, 0, 0, 1, False)
     medical_gun = Weapons(("gun", "medical"), 0, 0, 0, 0, 0, 1, 0, 0, 500, 1, 0, 0, 0, 0, 0, 50, 5, False)
 
     infinity_gun = Weapons(("gun", "debug"), 1e7, 5, 5, 5, 5, 1 / 60, 100, 0, 1e5, 0, 5, 0, 0, 0, 0, 100, 0, False)
-    knockback_gun = Weapons(("gun", "joke", "debug"), 0, 0, 0, 0, 0, 0.5, 0, 0, 250, 1, 0, -100, 5, 500, 10, 0, 0, False)
+    knockback_gun = Weapons(("gun", "joke", "debug"), 0, 0, 0, 0, 0, 0.5, 0, 0, 250, 1, 0, -100, 5, 500, 10, 0, 0,
+                            False)
     bounce_test = Weapons(("gun", "test"), 100, 0, 0, 0, 0, 0.5, 0, 0, 500, 0, 0, 0, 100, 0, 0, 0, 0, False)
     pierce_test = Weapons(("gun", "test"), 1000, 0, 0, 0, 0, 1, 0, 0, 5000, 0, 10, 0, 0, 0, 0, 0, 0, False)
-    explosion_test = Weapons(("gun", "explosion", "test"), 10, 0, 1, 0, 0, 0.5, 5, 1, 500, 1, 0, -50, 0, 25, 1, 5, 1, True)
+    explosion_test = Weapons(("gun", "explosion", "test"), 10, 0, 1, 0, 0, 0.5, 5, 1, 500, 1, 0, -50, 0, 25, 1, 5, 1,
+                             True)
 
-    weapons = [medical_gun, medical_gun, gun, fast_gun, fast_gun]
-    last_attacked = []  # stores the last framed that each weapon attacked on
+    weapons = []
+    time_until_next_attack = []
     weapon_location = []  # stores an array of the weapon locations
     weapon_distance = 1
     weapon_radian = 0
     weapon_spin_speed = 10  # in seconds
 
     for i in range(len(weapons)):
-        last_attacked.append(0)
+        time_until_next_attack.append(0)
         weapon_location.append([0, 0])
 
+    # the sprite groups belonging to a player
     projectiles = pygame.sprite.Group()
     explosions = pygame.sprite.Group()
-
 
     def __init__(self):
         super().__init__(dog_idle_animation)
         self.cowering = False
         self.cowering_last_frame = False
 
-    def woof(self, enemies, frame):
+    def woof(self, enemies):
         self.animation = dog_woof_animation
         self.animation.reset()
 
         for enemy in enemies:
             if math.sqrt(((self.x - enemy.x) ** 2) + ((self.y - enemy.y) ** 2)) < 10:
-                enemy.knockback((self.x, self.y), 20, 10, frame)
-                enemy.unstuned = frame + 300
+                enemy.knockback((self.x, self.y), 10, 0.5)
+                enemy.unstuned = 5
 
-        self.stamina = max(0, self.stamina - 25)
-        self.woof_cooldown = frame + 600  # 10 seconds
+        self.stamina -= 25
+        self.woof_remaining_cooldown = 10
 
     def blush(self):
         self.animation = dog_blush_animation
@@ -108,7 +152,7 @@ class Player(GameSprite):
 
     def update(self, elapsed, frame_context: FrameContext, *args):
         super().update(elapsed, frame_context)
-        self.player_hit_by_enemies(frame_context.frame, frame_context.enemies)
+        self.player_hit_by_enemies(frame_context.enemies)
 
         self.set_weapon_locations()
 
@@ -123,7 +167,15 @@ class Player(GameSprite):
             else:
                 self.animation = dog_cower_animation if self.cowering else dog_idle_animation
 
-    def controls(self, enemies, frame_context):
+        self.update_time(elapsed)
+
+    def update_time(self, elapsed):
+        self.woof_remaining_cooldown = max(self.woof_remaining_cooldown - elapsed, 0)
+        self.dash_remaining_cooldown = max(self.dash_remaining_cooldown - elapsed, 0)
+        self.dash_time = max(self.dash_time - elapsed, 0)
+        self.next_hittable = max(self.next_hittable - elapsed, 0)
+
+    def controls(self, enemies, elapsed):
         angle = []
 
         keys_pressed = pygame.key.get_pressed()
@@ -151,7 +203,7 @@ class Player(GameSprite):
         self.vx = 0.0
         self.vy = 0.0
         move_speed = (1.0 + (self.speed / 100.0)) * self.base_speed
-        if self.dash_end > frame_context.frame:
+        if self.dash_time > 0:
             move_speed *= 10
         pi = 3.1415926535897932384626433
         if len(angle) > 0:
@@ -163,28 +215,28 @@ class Player(GameSprite):
             self.vx = move_speed * math.sin(angle * pi)
             self.vy = move_speed * math.cos(angle * pi)
 
-        if keys_pressed[pygame.K_SPACE] and self.woof_cooldown < frame_context.frame and self.stamina > 25:
-            self.woof(enemies, frame_context.frame)
-        elif keys_pressed[pygame.K_l]:
+        if keys_pressed[pygame.K_SPACE] and self.woof_remaining_cooldown == 0 and self.stamina >= 25:
+            self.woof(enemies)
+        if keys_pressed[pygame.K_l]:
             self.blush()
-        elif keys_pressed[pygame.K_f] and self.dash_cooldown < frame_context.frame and self.stamina > 10:
-            self.dash_end = frame_context.frame + 12
-            self.dash_cooldown = frame_context.frame + 180
-            self.next_hittable = frame_context.frame + 12
-            self.stamina = max(0, self.stamina - 10)
+        if keys_pressed[pygame.K_f] and self.dash_remaining_cooldown == 0 and self.stamina >= 10:
+            self.dash_time = self.dash_duration
+            self.dash_remaining_cooldown = self.dash_cooldown_length
+            self.next_hittable = self.dash_duration
+            self.stamina -= 10
 
         self.cowering_last_frame = self.cowering
         self.cowering = keys_pressed[pygame.K_c] and self.stamina > (100 / (15 * 60))
-        self.cower()
+        self.cower(elapsed)
 
-    def generate_projectiles(self, frame, enemies):
-        for i in range(len(self.weapons)):
-            weapon = self.weapons[i]
-            if frame > self.last_attacked[i] + (weapon.use_time / (1 + self.attack_speed) * 60):
+    def generate_projectiles(self, elapsed, enemies):
+        for i, weapon in enumerate(self.weapons):
+            self.time_until_next_attack[i] -= elapsed
+            while self.time_until_next_attack[i] <= 0:
                 bullet = PlayerAttacks((self.weapon_location[i][0], self.weapon_location[i][1]), weapon, self)
                 self.projectiles.add(bullet)
                 bullet.set_direction(enemies)
-                self.last_attacked[i] = frame
+                self.time_until_next_attack[i] += weapon.use_time * (1 + self.attack_speed / 100)
 
     def remove_bullets(self):
         for bullet in self.projectiles:
@@ -203,23 +255,26 @@ class Player(GameSprite):
                 location[0] = self.x + self.weapon_distance * math.cos(radian)
                 location[1] = self.y + self.weapon_distance * math.sin(radian)
 
-    def player_hit_by_enemies(self, frame, enemies):
+    def player_hit_by_enemies(self, enemies):
         for enemy in enemies:
-            if frame > self.next_hittable:
-                if pygame.Rect.colliderect(self.rect, enemy.rect):
-                    self.next_hittable = frame + 30
-                    if self.cowering:
-                        self.next_hittable += 30
-                    self.hp -= enemy.power * (1 / (1 + (self.armor / 15)))
+            if enemy.harmless == 0:
+                if self.next_hittable == 0:
+                    if pygame.Rect.colliderect(self.rect, enemy.rect):
+                        self.next_hittable += self.immunity_duration
+                        if random.randint(1, 100) > min(self.dodge, self.dodge_cap):
+                            self.hp -= enemy.power * (1 / (1 + (self.armor / 15)))
+                else:
+                    break
 
-    def cower(self):
+    def cower(self, elapsed):
         if self.cowering and not self.cowering_last_frame:
             self.armor = max(2 * (self.armor + 25), self.armor)
+            self.immunity_duration *= 2
         if not self.cowering and self.cowering_last_frame:
             self.armor = min((self.armor / 2) - 25, self.armor)
-
+            self.immunity_duration /= 2
         if self.cowering:
-            self.stamina = max(0, self.stamina - (100 / (15 * 60)))
+            self.stamina -= 5 * elapsed
 
 
 image_loader = ImageLoader('assets/jeff')

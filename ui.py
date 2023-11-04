@@ -56,13 +56,6 @@ def draw_stamina_bar(player, screen):
 
 
 def draw_ability_cooldowns(player, frame, screen):
-    woof_time_ratio = (player.woof_cooldown - frame) / 600
-    dash_time_ratio = (player.dash_cooldown - frame) / 180
-
-
-    dash_x = 200
-    dash_y = 800
-
     w = 50
     h = 250
     x_gap = 10
@@ -75,6 +68,8 @@ def draw_ability_cooldowns(player, frame, screen):
     text_color = (0, 0, 0)
 
     #  woof
+    woof_time_ratio = player.woof_remaining_cooldown / player.woof_cooldown_length
+
     woof_x = 110
     woof_y = 750
 
@@ -90,10 +85,12 @@ def draw_ability_cooldowns(player, frame, screen):
         text = font.render(f"woof ready", True, text_color)
         screen.blit(text, woof)
     else:
-        text = font.render(f"woof: {max(0, round((player.woof_cooldown - frame) / 60, 1))} / 10", True, text_color)
+        text = font.render(f"woof: {max(0, round(player.woof_remaining_cooldown, 1))} / {player.woof_cooldown_length}", True, text_color)
         screen.blit(text, woof)
 
     #  dash
+    dash_time_ratio = player.dash_remaining_cooldown / player.dash_cooldown_length
+
     dash_x = 185
     dash_y = 750
 
@@ -109,5 +106,5 @@ def draw_ability_cooldowns(player, frame, screen):
         text = font.render(f"dash ready", True, text_color)
         screen.blit(text, dash)
     else:
-        text = font.render(f"dash: {max(0, round((player.dash_cooldown - frame) / 60, 1))} / 3", True, text_color)
+        text = font.render(f"dash: {max(0, round(player.dash_remaining_cooldown, 1))} / {player.dash_cooldown_length}", True, text_color)
         screen.blit(text, dash)

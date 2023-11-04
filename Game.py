@@ -27,6 +27,7 @@ class Game:
         self.player.y = self.arena_bounds[1] + (self.arena_bounds[3] / 2)
 
         self.enemies = pygame.sprite.Group()
+        self.next_spawn = 1
 
         self.water = BackgroundSprite(25, water)
         self.sand = BackgroundSprite(0, sand)
@@ -49,6 +50,7 @@ class Game:
         sprites.add(self.water, self.sand, self.grass, self.player)
 
         running = True
+        last_time = time.time_ns()
         # Main game loop
         while running:
             # Calculate elapsed seconds
@@ -81,17 +83,14 @@ class Game:
                 print(f"enemy count: {len(self.enemies)}\n")
             clock.tick(fps)
 
-    def spawn_enemies(self, frame, wave, player):
-        if frame % 60 == 0:
-            for i in range(min(wave, self.enemy_cap - len(self.enemies))):
-                enemy = Enemy(
-                    random.randint(int(self.arena_bounds[0] * 100), int(self.arena_bounds[2] * 100)) / 100,
-                    random.randint(int(self.arena_bounds[1] * 100), int(self.arena_bounds[3] * 100)) / 100,
-                    5 * wave, 0, wave, "default")
-                self.enemies.add(enemy)
-                while (((self.player.x - enemy.x) ** 2) + ((self.player.x - enemy.x) ** 2) ** 0.5) < 5:
-                    enemy.x = random.randint(int(self.arena_bounds[0] * 100), int(self.arena_bounds[2] * 100)) / 100
-                    enemy.y = random.randint(int(self.arena_bounds[1] * 100), int(self.arena_bounds[3] * 100)) / 100
+    def spawn_enemies(self, wave, elapsed):
+        self.next_spawn -= elapsed
+        while self.next_spawn < 0 and len(self.enemies) < self.enemy_cap:
+            self.next_spawn += 1 / wave
+            enemy = Enemy(random.randint(int(self.arena_bounds[0] * 100), int((self.arena_bounds[0] + self.arena_bounds[2] / 2) * 100)) / 100,
+                          random.randint(int(self.arena_bounds[1] * 100), int((self.arena_bounds[1] + self.arena_bounds[3] / 2) * 100)) / 100,
+                          wave * 5, 1, wave, "enemy")
+            self.enemies.add(enemy)
 
     def draw_weapons(self):
         for weapon in self.player.weapon_location:
@@ -101,15 +100,16 @@ class Game:
 
     def wave_code(self, elapsed, sprites, frame_context: FrameContext):
         # Update object positions, health, state, etc
-        self.player.controls(self.enemies, frame_context)
+        self.player.controls(self.enemies, elapsed)
+        self.player.controls(self.enemies, elapsed)
         self.viewport.move(self.arena_bounds, self.player)
 
         sprites.update(elapsed, frame_context)
 
-        self.spawn_enemies(frame_context.frame, self.wave, self.player)
+        self.spawn_enemies(self.wave, elapsed)
         self.enemies.update(elapsed, self.enemies, self.player, frame_context)
 
-        self.player.generate_projectiles(frame_context.frame, self.enemies)
+        self.player.generate_projectiles(elapsed, self.enemies)
         self.player.remove_bullets()
 
         for bullet in self.player.projectiles:
@@ -157,3 +157,4 @@ image_loader = ImageLoader('assets/background')
 grass = Animation(image_loader.load_images('grass'), 2)
 water = Animation(image_loader.load_images('ocean'))
 sand = Animation(image_loader.load_images('beach'))
+

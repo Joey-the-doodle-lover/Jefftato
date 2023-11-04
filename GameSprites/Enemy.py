@@ -6,11 +6,11 @@ from ParentSpites.animation import ImageLoader, Animation
 
 class Enemy(GameSprite):
     base_image = None
-    knockbacked = False
+    knockbacked = 0
     repulsion_strength = 0.05
 
     def __init__(self, x, y, hp, speed, power, typ):
-        super().__init__(enemy_temp_image)
+        super().__init__(scary_x)
         self.x = x
         self.y = y
         self.flipped = False
@@ -20,15 +20,18 @@ class Enemy(GameSprite):
         self.base_speed = 2.5
         self.type = typ
         self.power = power
-        self.unstuned = 0  # frame when they will next be unstunned
+        self.unstuned = 3  # seconds until they are unstunned
+        self.harmless = 3
 
         self.real_radius = 0.25
         self.width = self.real_radius * 2
         self.height = self.real_radius * 2
 
-    def get_velocity(self, player, frame):
-        if frame > self.knockbacked:
-            if frame > self.unstuned:
+    def get_velocity(self, player):
+        if self.knockbacked == 0:
+            if self.unstuned == 0:
+                if self.animation == scary_x:
+                    self.animation = enemy_temp_image
                 move_speed = (1 + (self.speed / 100)) * self.base_speed
                 dx = player.x - self.x
                 dy = player.y - self.y
@@ -45,11 +48,15 @@ class Enemy(GameSprite):
             self.flipped = True
 
     def update(self, elapsed, enemies, player, frame_context):
-        self.get_velocity(player, frame_context.frame)
+        self.get_velocity(player)
         self.repel_from_enemies(enemies)
         super().update(elapsed, frame_context)
 
         self.remove_dead()
+
+        self.unstuned = max(0, self.unstuned - elapsed)
+        self.knockbacked = max(0, self.knockbacked - elapsed)
+        self.harmless = max(0, self.harmless - elapsed)
 
     def repel_from_enemies(self, enemies):
         for enemy in enemies:
@@ -70,14 +77,15 @@ class Enemy(GameSprite):
         if self.hp <= 0:
             self.kill()
 
-    def knockback(self, hit_from, speed, duration, frame):
+    def knockback(self, hit_from, speed, duration):
         dx = hit_from[0] - self.x
         dy = hit_from[1] - self.y
         angle = math.atan2(dy, dx)
         self.vx = -(speed * math.cos(angle))
         self.vy = -(speed * math.sin(angle))
-        self.knockbacked = frame + duration
+        self.knockbacked = duration
 
 
 image_loader = ImageLoader('assets/enemy')
+scary_x = Animation(image_loader.load_images('new_enemy'))
 enemy_temp_image = Animation(image_loader.load_images('temp-bug'), 0.2)
